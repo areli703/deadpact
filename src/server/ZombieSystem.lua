@@ -1,0 +1,408 @@
+--!strict
+--[[
+	ZombieSystem.lua — the horde: the clock that makes every decision urgent.
+
+	* Zombies are POOLED. We warm a fixed pool and reuse instances rather than
+	  instancing unbounded new parts.
+	* One shared Heartbeat step (registered via Runtime) drives every zombie;
+	  there is no per-zombie connection.
+	* Escalating waves are read from Config.Waves, which is validated against
+	  the Active phase length at load time.
+	* Specials: a Shrieker summons a burst of walkers on death; a Stalker hunts
+	  the most isolated player.
+	* Noise convergence: a zombie walks toward the district's hottest noise node
+	  when that node is closer than the nearest player.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Util = require(Shared:WaitForChild("Util"))
+
+local Runtime = require(script.Parent.Runtime)
+local NoiseSystem = require(script.Parent.NoiseSystem)
+
+local ZombieSystem = {}
+
+export type Zombie = {
+	model: Model,
+	part: Part,
+	id: string,
+	kind: string,
+	health: number,
+	lastAttackAt: number,
+	active: boolean,
+	targetUserId: number?,
+	spawnedAt: number,
+}
+
+local pool: { Zombie } = {}
+local active: { Zombie } = {}
+local waveIndex = 0
+local spawnAccumulator = 0
+local waveBroadcast: (number, number) -> () = function() end
+local rng = Random.new()
+
+local function buildModel(kind: string): (Model, Part)
+	local cfg = Config.Zombies[kind]
+	local model = Instance.new("Model")
+	model.Name = "Zombie_" .. kind
+
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Size = cfg.size
+	body.Anchored = false
+	body.CanCollide = true
+	body.CanQuery = true
+	body.Color = cfg.color
+	body.Material = Enum.Material.Sand
+	body.TopSurface = Enum.SurfaceType.Smooth
+	body.BottomSurface = Enum.SurfaceType.Smooth
+	body.Parent = model
+
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Shape = Enum.PartType.Ball
+	head.Size = Vector3.new(cfg.size.X, cfg.size.X, cfg.size.X)
+	head.Color = cfg.color
+	head.Material = Enum.Material.Sand
+	head.CanCollide = false
+	head.CanQuery = false
+	head.Parent = model
+
+	local motor = Instance.new("Motor6D")
+	motor.Name = "Neck"
+	motor.Part0 = body
+	motor.Part1 = head
+	motor.C0 = CFrame.new(0, cfg.size.Y / 2, 0)
+	motor.Parent = body
+
+	model.PrimaryPart = body
+	return model, body
+end
+
+local function makeRecord(kind: string, index: number): Zombie
+	local model, body = buildModel(kind)
+	return {
+		model = model,
+		part = body,
+		id = string.format("z%03d_%s", index, kind),
+		kind = kind,
+		health = Config.Zombies[kind].health,
+		lastAttackAt = 0,
+		active = false,
+		targetUserId = nil,
+		spawnedAt = 0,
+	}
+end
+
+local function deactivate(zombie: Zombie): ()
+	zombie.active = false
+	zombie.model.Parent = nil
+	zombie.health = Config.Zombies[zombie.kind].health
+	zombie.targetUserId = nil
+end
+
+local function acquire(kind: string): Zombie?
+	for _, zombie in ipairs(pool) do
+		if not zombie.active and zombie.kind == kind then
+			return zombie
+		end
+	end
+	local activeCount = 0
+	for _, zombie in ipairs(pool) do
+		if zombie.active then
+			activeCount += 1
+		end
+	end
+	if activeCount >= Config.ZombieMaxCount or #pool >= Config.ZombieMaxCount then
+		return nil
+	end
+	local zombie = makeRecord(kind, #pool + 1)
+	table.insert(pool, zombie)
+	return zombie
+end
+
+local function spawnPosition(around: Vector3): Vector3
+	local angle = rng:NextNumber() * math.pi * 2
+	local distance = rng:NextNumber(Config.ZombieSpawnDistanceMin, Config.ZombieSpawnDistanceMax)
+	local pos = around + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+	local half = Config.District.studsPerSide / 2 - 4
+	return Vector3.new(
+		math.clamp(pos.X, -half, half),
+		Config.District.groundY + 4,
+		math.clamp(pos.Z, -half, half)
+	)
+end
+
+local function spawnOne(kind: string, around: Vector3): Zombie?
+	local zombie = acquire(kind)
+	if zombie == nil then
+		return nil
+	end
+	local cfg = Config.Zombies[kind]
+	zombie.active = true
+	zombie.health = cfg.health
+	zombie.lastAttackAt = 0
+	zombie.targetUserId = nil
+	zombie.spawnedAt = Runtime.now()
+	zombie.model:PivotTo(CFrame.new(spawnPosition(around)))
+	zombie.model.Parent = workspace
+	table.insert(active, zombie)
+	return zombie
+end
+
+--- Spawns a burst of walkers at a position (Shrieker death, events).
+function ZombieSystem.spawnBurst(position: Vector3, count: number): ()
+	for _ = 1, count do
+		spawnOne("walker", position)
+	end
+end
+
+--- Spawns a special zombie at a position.
+function ZombieSystem.spawnSpecial(kind: string, position: Vector3): Zombie?
+	return spawnOne(kind, position)
+end
+
+local function mostIsolatedUser(): number?
+	local states = Runtime.aliveStates()
+	local bestId: number? = nil
+	local bestScore = -math.huge
+	for _, ps in ipairs(states) do
+		local nearest = math.huge
+		for _, other in ipairs(states) do
+			if other.userId ~= ps.userId then
+				local dist = (other.position - ps.position).Magnitude
+				if dist < nearest then
+					nearest = dist
+				end
+			end
+		end
+		if nearest > bestScore then
+			bestScore = nearest
+			bestId = ps.userId
+		end
+	end
+	return bestId
+end
+
+local function nearestPlayer(position: Vector3): Runtime.PlayerState?
+	local best: Runtime.PlayerState? = nil
+	local bestDist = math.huge
+	for _, ps in ipairs(Runtime.aliveStates()) do
+		local dist = (ps.position - position).Magnitude
+		if dist < bestDist then
+			bestDist = dist
+			best = ps
+		end
+	end
+	return best
+end
+
+local function applyContactDamage(zombie: Zombie, ps: Runtime.PlayerState, now: number): ()
+	local cfg = Config.Zombies[zombie.kind]
+	if now - zombie.lastAttackAt < cfg.attackCooldown then
+		return
+	end
+	zombie.lastAttackAt = now
+	local combat = Runtime.service("Combat")
+	combat.damagePlayer(ps, cfg.damage, "Zombie", zombie.part.Position)
+end
+
+local function moveZombie(zombie: Zombie, dt: number, goal: Vector3): ()
+	local cfg = Config.Zombies[zombie.kind]
+	local position = zombie.part.Position
+	local flatGoal = Vector3.new(goal.X, position.Y, goal.Z)
+	local delta = flatGoal - position
+	if delta.Magnitude < 0.5 then
+		return
+	end
+	local advance = math.min(cfg.walkSpeed * dt, delta.Magnitude)
+	local nextPosition = position + delta.Unit * advance
+	zombie.part.CFrame = CFrame.lookAt(nextPosition, flatGoal)
+end
+
+local function spawnWaveSpecial(spawnAround: Vector3): ()
+	local entries: { { id: string, weight: number } } = {}
+	for id, cfg in pairs(Config.Zombies) do
+		if id ~= "walker" and cfg.weight > 0 then
+			table.insert(entries, { id = id, weight = cfg.weight })
+		end
+	end
+	if #entries == 0 then
+		return
+	end
+	local pick = Util.weightedPick(entries, function(entry)
+		return entry.weight
+	end)
+	spawnOne(pick.id, spawnAround)
+end
+
+local function advanceWave(roundLoop: any): ()
+	local elapsed = roundLoop.phaseElapsed()
+	local schedule = Config.Waves
+	local targetWave = 0
+	for i, wave in ipairs(schedule) do
+		if elapsed >= wave.atSeconds then
+			targetWave = i
+		end
+	end
+	if targetWave <= waveIndex then
+		return
+	end
+	waveIndex = targetWave
+	local wave = schedule[waveIndex]
+	local states = Runtime.aliveStates()
+	local around = if #states > 0 then states[1].position else Vector3.zero
+	for _ = 1, wave.specials do
+		spawnWaveSpecial(around)
+	end
+	waveBroadcast(waveIndex, wave.specials)
+end
+
+local function step(dt: number, now: number): ()
+	local roundLoop = Runtime.service("RoundLoop")
+	if roundLoop.phaseName() == "Active" then
+		advanceWave(roundLoop)
+		spawnAccumulator += dt
+		if spawnAccumulator >= Config.ZombieSpawnInterval then
+			spawnAccumulator = 0
+			local wave = Config.Waves[math.max(1, waveIndex)]
+			local states = Runtime.aliveStates()
+			local around = if #states > 0 then states[1].position else Vector3.zero
+			local activeCount = #active
+			if activeCount < wave.count and activeCount < Config.ZombieMaxCount then
+				spawnOne("walker", around)
+			end
+		end
+	end
+
+	local hot = NoiseSystem.hottest()
+	local hotPosition = hot and hot.position or nil
+	local isolatedId = mostIsolatedUser()
+
+	local keep: { Zombie } = {}
+	for _, zombie in ipairs(active) do
+		if not zombie.active or zombie.health <= 0 then
+			deactivate(zombie)
+		else
+			local cfg = Config.Zombies[zombie.kind]
+			local position = zombie.part.Position
+			local goal: Vector3? = nil
+
+			if cfg.targetsIsolated and isolatedId ~= nil then
+				local target = Runtime.getStateByUserId(isolatedId)
+				if target ~= nil then
+					goal = target.position
+					zombie.targetUserId = isolatedId
+				end
+			end
+
+			local nearest = nearestPlayer(position)
+			if goal == nil and hotPosition ~= nil and hotPosition ~= nil then
+				local noiseDist = (hotPosition - position).Magnitude
+				if nearest == nil or noiseDist < (nearest.position - position).Magnitude then
+					goal = hotPosition
+				end
+			end
+
+			if goal == nil and nearest ~= nil then
+				goal = nearest.position
+				zombie.targetUserId = nearest.userId
+			end
+
+			if goal ~= nil then
+				moveZombie(zombie, dt, goal)
+			end
+
+			if nearest ~= nil and (nearest.position - position).Magnitude <= 5 then
+				applyContactDamage(zombie, nearest, now)
+			end
+
+			if
+				nearest ~= nil
+				and (nearest.position - position).Magnitude > Config.ZombieDespawnDistance
+			then
+				deactivate(zombie)
+			else
+				table.insert(keep, zombie)
+			end
+		end
+	end
+	active = keep
+end
+
+--- Called by the combat system when a zombie takes damage. Returns true + a
+--- kill flag when this hit killed it.
+function ZombieSystem.damage(zombie: Zombie, damage: number): (boolean, boolean)
+	zombie.health -= damage
+	if zombie.health <= 0 then
+		local cfg = Config.Zombies[zombie.kind]
+		local position = zombie.part.Position
+		if cfg.onDeathBurst > 0 then
+			ZombieSystem.spawnBurst(position, cfg.onDeathBurst)
+		end
+		deactivate(zombie)
+		return true, true
+	end
+	return false, false
+end
+
+--- Finds the nearest active zombie to a position within `maxDist`.
+function ZombieSystem.nearest(position: Vector3, maxDist: number): Zombie?
+	local best: Zombie? = nil
+	local bestDist = maxDist
+	for _, zombie in ipairs(active) do
+		local dist = (zombie.part.Position - position).Magnitude
+		if dist <= bestDist then
+			bestDist = dist
+			best = zombie
+		end
+	end
+	return best
+end
+
+--- Active zombie count (HUD / debrief).
+function ZombieSystem.count(): number
+	return #active
+end
+
+--- The current wave index (0 before the first wave).
+function ZombieSystem.waveIndex(): number
+	return waveIndex
+end
+
+--- Clears the horde between rounds.
+function ZombieSystem.reset(): ()
+	for _, zombie in ipairs(active) do
+		deactivate(zombie)
+	end
+	active = {}
+	waveIndex = 0
+	spawnAccumulator = 0
+end
+
+--- Wires the wave broadcaster and starts the shared step.
+function ZombieSystem.start(): ()
+	local Net = require(script.Parent.Net)
+	waveBroadcast = function(index: number, specials: number): ()
+		Net.broadcast("RoundState", { waveIndex = index, specials = specials })
+	end
+	for _ = 1, Config.ZombiePoolWarmup do
+		table.insert(pool, makeRecord("walker", #pool + 1))
+	end
+	Runtime.registerStep(step)
+end
+
+--- Maps a hit part back to its pooled zombie (combat raycast resolution).
+function ZombieSystem.byPart(part: BasePart): Zombie?
+	for _, zombie in ipairs(active) do
+		if zombie.part == part or zombie.model == part.Parent then
+			return zombie
+		end
+	end
+	return nil
+end
+
+return ZombieSystem
