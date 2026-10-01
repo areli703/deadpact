@@ -1,0 +1,8 @@
+# DEADPACT build artefacts
+*.log
+.DS_Store
+__pycache__/
+
+# Design sources are committed on purpose: the HTML/CSS that produced the
+# mockups is the source of truth for the art direction, and re-rendering the
+# PNGs from it must be possible by anyone who clones this repo.

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --amber:#ffb648;
+    --blood:#c8321f;
+    --void:#07080c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1280px;height:720px;overflow:hidden;background:#000;
+    font-family:"DejaVu Sans","Liberation Sans",sans-serif}
+
+  .screen{position:relative;width:1280px;height:720px;overflow:hidden;background:var(--void)}
+
+  /* ---------------- backdrop ---------------- */
+  .bg{position:absolute;inset:0;
+    background:
+      radial-gradient(120% 82% at 70% 44%, rgba(255,132,36,.26) 0%, rgba(255,80,18,.07) 26%, rgba(0,0,0,0) 60%),
+      radial-gradient(70% 60% at 14% 26%, rgba(36,96,146,.18) 0%, rgba(0,0,0,0) 62%),
+      linear-gradient(180deg,#0a0d13 0%, #12161e 34%, #0a0c11 70%, #04050a 100%);
+  }
+  .sky{position:absolute;left:0;right:0;bottom:0;height:430px;opacity:.92}
+
+  /* horde on the horizon — the genre signal */
+  .horde{position:absolute;left:0;right:0;bottom:203px;height:138px;opacity:1;z-index:2}
+  .ground{position:absolute;left:0;right:0;bottom:0;height:250px;
+    background:linear-gradient(180deg, rgba(255,130,40,.07), rgba(0,0,0,0) 62%);
+    box-shadow:inset 0 1px 0 rgba(255,180,90,.12)}
+  .fog{position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(60% 42% at 58% 66%, rgba(130,160,200,.13), rgba(0,0,0,0) 72%),
+      linear-gradient(180deg, rgba(0,0,0,0) 76%, rgba(10,12,18,.42) 100%)}
+  .rain{position:absolute;inset:-15%;opacity:.12;mix-blend-mode:screen;
+    background-image:repeating-linear-gradient(72deg,
+      rgba(205,228,255,.9) 0px, rgba(205,228,255,.9) 1px,
+      rgba(0,0,0,0) 1px, rgba(0,0,0,0) 9px)}
+  /* film grain for grit */
+  .grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;
+    background-image:repeating-conic-gradient(#fff 0% 25%, #000 0% 50%);
+    background-size:3px 3px}
+  .vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(118% 96% at 50% 48%, rgba(0,0,0,0) 40%, rgba(0,0,0,.66) 86%, rgba(0,0,0,.9) 100%)}
+
+  /* blood smear, top-right corner */
+  .blood{position:absolute;right:-30px;top:-24px;width:280px;height:190px;opacity:.5;
+    background:
+      radial-gradient(38% 46% at 68% 40%, #8f1c0e 0%, #5e1309 42%, rgba(0,0,0,0) 74%),
+      radial-gradient(22% 30% at 46% 62%, #a32412 0%, rgba(0,0,0,0) 70%);
+    filter:blur(2px)}
+
+  /* ---------------- title ---------------- */
+  .title-wrap{position:absolute;left:74px;top:104px}
+  .title{font-weight:bold;font-size:106px;letter-spacing:9px;line-height:.94;color:#f5eee3;
+    text-shadow:0 2px 0 #241f1a, 0 5px 22px rgba(0,0,0,.92), 0 0 52px rgba(255,150,60,.36)}
+  .title .k{color:var(--blood);text-shadow:0 2px 0 #2a0d08, 0 0 50px rgba(200,50,30,.6)}
+  .tagline{margin-top:15px;font-size:16.5px;letter-spacing:5.5px;color:#bda88f;text-transform:uppercase}
+  .rule{margin-top:19px;width:440px;height:2px;
+    background:linear-gradient(90deg,var(--amber),rgba(255,182,72,0))}
+
+  /* ---------------- menu ---------------- */
+  .menu{position:absolute;left:76px;top:340px;width:404px}
+  .item{position:relative;display:flex;align-items:center;gap:15px;padding:13px 18px 13px 20px;
+    margin-bottom:8px;border:1px solid rgba(180,160,130,.14);
+    border-left:2px solid rgba(180,160,130,.22);
+    background:linear-gradient(90deg, rgba(18,20,26,.86), rgba(18,20,26,.38))}
+  .item.on{border-left:3px solid var(--amber);
+    background:linear-gradient(90deg, rgba(255,150,50,.19), rgba(18,20,26,.26));
+    box-shadow:inset 0 0 30px rgba(255,150,50,.15), 0 0 22px rgba(255,140,40,.10)}
+  .item.on::before{content:"";position:absolute;left:-11px;top:50%;transform:translateY(-50%);
+    width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;
+    border-left:11px solid var(--amber);filter:drop-shadow(0 0 6px rgba(255,150,50,.85))}
+  .num{font-size:12px;color:#79818f;letter-spacing:2px;width:22px}
+  .item.on .num{color:var(--amber)}
+  .label{font-size:23px;letter-spacing:2.4px;color:#dbd4c6;font-weight:bold}
+  .item.on .label{color:#fff;text-shadow:0 0 20px rgba(255,160,60,.55)}
+  .desc{font-size:10.5px;color:#8b8577;letter-spacing:1.1px;margin-left:auto;text-align:right;max-width:152px;line-height:1.45}
+
+  /* ---------------- right column ---------------- */
+  .panel{position:absolute;right:60px;top:112px;width:286px}
+  .ptitle{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:4px;color:#e6dccb;margin-bottom:11px}
+  .ptitle i{flex:1;height:1px;background:linear-gradient(90deg,var(--blood),rgba(200,50,30,0))}
+  .slot{display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:6px;
+    border:1px solid rgba(180,160,130,.12);background:rgba(15,17,23,.66)}
+  .av{width:36px;height:36px;border-radius:2px;flex:none;
+    background:linear-gradient(135deg,#39414f,#191d25);border:1px solid rgba(180,200,230,.18)}
+  .av.b{background:linear-gradient(135deg,#4a3a2a,#211709);border-color:rgba(255,170,80,.34)}
+  .sname{font-size:13px;color:#d3cbbb;letter-spacing:.8px}
+  .srole{font-size:9px;color:#7d8797;letter-spacing:2.2px;margin-top:2px}
+  .empty{border:1px dashed rgba(150,140,120,.22);color:#5f6673;font-size:10.5px;
+    letter-spacing:2px;padding:11px;text-align:center;margin-bottom:6px;
+    background:rgba(15,17,23,.34)}
+
+  .server{margin-top:14px;padding:12px 15px;border:1px solid rgba(180,160,130,.14);
+    background:rgba(15,17,23,.62)}
+  .srow{display:flex;justify-content:space-between;font-size:11.5px;color:#a9a293;letter-spacing:1.2px;padding:4px 0}
+  .srow b{color:var(--amber);font-weight:normal}
+  .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7dd47d;
+    box-shadow:0 0 9px #7dd47d;margin-right:7px;vertical-align:1px}
+  .warn{color:#e0684a !important;text-shadow:0 0 10px rgba(200,50,30,.5)}
+
+  /* ---------------- hero (dual rim light) ---------------- */
+  .hero{position:absolute;right:356px;bottom:96px;width:150px;height:322px}
+  .hero .hglow{position:absolute;inset:-46px -38px -14px -38px;
+    background:radial-gradient(58% 58% at 52% 62%, rgba(255,150,60,.26), rgba(0,0,0,0) 72%)}
+
+  .foot{position:absolute;left:76px;bottom:40px;font-size:10px;letter-spacing:3px;color:#5a626f}
+  .build{position:absolute;right:60px;bottom:40px;font-size:10px;letter-spacing:3px;color:#5a626f;text-align:right}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="bg"></div>
+
+  <svg class="sky" viewBox="0 0 1280 430" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="bl" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1b222c"/><stop offset="1" stop-color="#080b11"/>
+      </linearGradient>
+      <linearGradient id="smoke" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#2a2f3a" stop-opacity=".5"/>
+        <stop offset="1" stop-color="#2a2f3a" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect x="0"    y="210" width="118" height="220" fill="url(#bl)"/>
+    <rect x="126"  y="152" width="92"  height="278" fill="url(#bl)"/>
+    <rect x="226"  y="244" width="142" height="186" fill="url(#bl)"/>
+    <rect x="378"  y="180" width="106" height="250" fill="url(#bl)"/>
+    <rect x="494"  y="258" width="170" height="172" fill="url(#bl)"/>
+    <rect x="674"  y="128" width="120" height="302" fill="url(#bl)"/>
+    <rect x="804"  y="216" width="134" height="214" fill="url(#bl)"/>
+    <rect x="948"  y="170" width="98"  height="260" fill="url(#bl)"/>
+    <rect x="1056" y="240" width="152" height="190" fill="url(#bl)"/>
+    <rect x="1218" y="192" width="62"  height="238" fill="url(#bl)"/>
+    <!-- smoke plumes rising from two towers -->
+    <path d="M700 128 q26 -54 74 -66 q-24 34 -30 66 z" fill="url(#smoke)"/>
+    <path d="M980 170 q22 -46 62 -58 q-20 30 -26 58 z" fill="url(#smoke)"/>
+    <!-- lit windows -->
+    <g fill="#ffb648" opacity=".6">
+      <rect x="144" y="178" width="7" height="10"/><rect x="164" y="202" width="7" height="10"/>
+      <rect x="194" y="170" width="7" height="10"/><rect x="144" y="230" width="7" height="10"/>
+      <rect x="692" y="156" width="7" height="10"/><rect x="720" y="146" width="7" height="10"/>
+      <rect x="748" y="186" width="7" height="10"/><rect x="692" y="210" width="7" height="10"/>
+      <rect x="966" y="198" width="7" height="10"/><rect x="996" y="190" width="7" height="10"/>
+      <rect x="1080" y="266" width="7" height="10"/><rect x="1118" y="290" width="7" height="10"/>
+    </g>
+    <g fill="#5fa8d8" opacity=".38">
+      <rect x="250" y="270" width="7" height="10"/><rect x="298" y="294" width="7" height="10"/>
+      <rect x="408" y="210" width="7" height="10"/><rect x="438" y="234" width="7" height="10"/>
+    </g>
+    <!-- red emergency signage -->
+    <rect x="836" y="252" width="44" height="17" fill="#c8321f" opacity=".85"/>
+    <rect x="1056" y="304" width="36" height="15" fill="#c8321f" opacity=".6"/>
+    <rect x="386" y="216" width="30" height="12" fill="#c8321f" opacity=".5"/>
+  </svg>
+
+  <div class="ground"></div>
+
+  <!-- horizon horde -->
+  <svg class="horde" viewBox="0 0 1280 120" preserveAspectRatio="none">
+    <defs>
+      <radialGradient id="hrGlow" cx=".5" cy="1" r="1">
+        <stop offset="0" stop-color="#ff8c24" stop-opacity=".30"/>
+        <stop offset="1" stop-color="#ff8c24" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="hz" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#c8763a" stop-opacity=".26"/>
+        <stop offset="1" stop-color="#c8763a" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="640" cy="118" rx="560" ry="34" fill="url(#hrGlow)"/>
+    <!-- haze band that lifts the figures off the skyline -->
+    <rect x="0" y="52" width="1280" height="70" fill="url(#hz)"/>
+    <!-- ember light + eyes so the mass reads as a threat -->
+    <g fill="#ff8c24" opacity=".85">
+      <circle cx="60" cy="86" r="1.7"/><circle cx="120" cy="84" r="1.5"/>
+      <circle cx="300" cy="86" r="1.8"/><circle cx="470" cy="85" r="1.6"/>
+      <circle cx="840" cy="85" r="1.7"/><circle cx="944" cy="86" r="1.5"/>
+      <circle cx="1140" cy="84" r="1.6"/>
+    </g>
+    <g fill="#05070b" stroke="#ff9a3c" stroke-opacity=".30" stroke-width="1.1">
+      <!-- clustered undead silhouettes, varied heights, some leaning -->
+      <g>
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/>
+        <circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(74,0) scale(.92)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(196,0) scale(.88) rotate(-6 131 90)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(300,0) scale(1.04)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(392,0) scale(.8)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(470,0) scale(.94) rotate(5 131 90)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(760,0) scale(.86)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(848,0) scale(1.0) rotate(-4 131 90)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(942,0) scale(.9)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(1046,0) scale(.96) rotate(6 131 90)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+      <g transform="translate(1140,0) scale(.82)">
+        <path d="M120 118 q-3 -22 3 -30 q4 -6 8 -6 q5 0 8 6 q5 8 3 30 z"/><circle cx="131" cy="76" r="7"/>
+      </g>
+    </g>
+  </svg>
+
+  <div class="fog"></div>
+  <div class="rain"></div>
+
+  <!-- hero: dual rim light so the silhouette reads -->
+  <svg class="hero" viewBox="0 0 150 322">
+    <defs>
+      <linearGradient id="sil" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#05070a"/><stop offset="1" stop-color="#0d1117"/>
+      </linearGradient>
+      <linearGradient id="rimWarm" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0" stop-color="#ffb648" stop-opacity=".95"/>
+        <stop offset="1" stop-color="#ffb648" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="rimCold" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#7fc4ff" stop-opacity=".85"/>
+        <stop offset="1" stop-color="#7fc4ff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <ellipse class="hglow" cx="75" cy="200" rx="86" ry="96" fill="rgba(255,150,60,.20)"/>
+    <!-- legs -->
+    <path d="M64 208 l-11 106 h13 l9 -66 7 66 h13 l-5 -106 z" fill="#04060a"/>
+    <!-- torso + backpack -->
+    <rect x="92" y="112" width="26" height="48" rx="5" fill="#080b10"/>
+    <path d="M52 104 q17 -15 34 0 l11 32 q7 46 4 80 l-6 74 h-15 l-5 -66 -9 66 h-15 l-6 -74 q-3 -34 7 -80 z" fill="url(#sil)"/>
+    <!-- head + hood -->
+    <circle cx="69" cy="76" r="21" fill="url(#sil)"/>
+    <path d="M50 70 q19 -26 38 0 q-6 -6 -19 -6 q-13 0 -19 6 z" fill="#04060a"/>
+    <!-- rifle across body -->
+    <path d="M20 152 l80 -28 l3 10 l-78 28 z" fill="#0a0d12"/>
+    <rect x="2" y="152" width="24" height="8" rx="2" fill="#05070a"/>
+    <!-- WARM rim (right edge, from the fire glow behind) -->
+    <path d="M69 55 a21 21 0 0 1 21 21 l-7 3 a15 15 0 0 0 -14 -15 z" fill="url(#rimWarm)"/>
+    <path d="M86 104 l11 32 q7 44 4 76 l-9 -3 q3 -32 -4 -74 l-10 -28 z" fill="url(#rimWarm)"/>
+    <path d="M92 112 h26 v6 h-24 z" fill="url(#rimWarm)"/>
+    <!-- COLD rim (left edge, from the city haze) -->
+    <path d="M52 104 q6 -6 13 -7 l-3 8 q-6 1 -10 6 z" fill="url(#rimCold)"/>
+    <path d="M52 104 l9 30 q-3 34 -6 74 l-7 -4 q3 -38 6 -70 z" fill="url(#rimCold)"/>
+    <circle cx="52" cy="70" r="21" fill="none" stroke="url(#rimCold)" stroke-width="2"
+      stroke-dasharray="26 200" stroke-dashoffset="12"/>
+  </svg>
+
+  <div class="blood"></div>
+
+  <div class="title-wrap">
+    <div class="title">DEAD<span class="k">PACT</span></div>
+    <div class="tagline">Trust no one &nbsp;·&nbsp; or die alone</div>
+    <div class="rule"></div>
+  </div>
+
+  <div class="menu">
+    <div class="item on">
+      <div class="num">01</div><div class="label">DEPLOY</div>
+      <div class="desc">Drop into the zone<br>solo or with a pact</div>
+    </div>
+    <div class="item">
+      <div class="num">02</div><div class="label">ARMORY</div>
+      <div class="desc">Pick your kit off<br>the wall rack</div>
+    </div>
+    <div class="item">
+      <div class="num">03</div><div class="label">THE PACT</div>
+      <div class="desc">Partners, debts<br>&amp; betrayals</div>
+    </div>
+    <div class="item">
+      <div class="num">04</div><div class="label">SETTINGS</div>
+      <div class="desc">Audio · Video ·<br>Controls · Ping</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle">YOUR PACT <i></i></div>
+    <div class="slot"><div class="av b"></div><div><div class="sname">You</div><div class="srole">SCOUT</div></div></div>
+    <div class="slot"><div class="av"></div><div><div class="sname">Kestrel_07</div><div class="srole">MEDIC</div></div></div>
+    <div class="empty">+ INVITE ALLY</div>
+    <div class="empty">+ INVITE ALLY</div>
+
+    <div class="server">
+      <div class="srow"><span><span class="live"></span>SECTOR</span><b>DOWNTOWN · NIGHT</b></div>
+      <div class="srow"><span>SURVIVORS</span><b>18 / 24</b></div>
+      <div class="srow"><span>HORDE</span><b class="warn">▲ ESCALATING</b></div>
+      <div class="srow"><span>PING</span><b>24 ms</b></div>
+    </div>
+  </div>
+
+  <div class="grain"></div>
+  <div class="vignette"></div>
+  <div class="foot">© 2026 · BUILT WITH THE ROJO TOOLCHAIN · LINUX → STUDIO</div>
+  <div class="build">v0.1 CONCEPT MOCKUP · NOT A SCREENSHOT</div>
+</div>
+</body>
+</html>
