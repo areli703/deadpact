@@ -33,6 +33,7 @@ export type AscentHandle = {
 	tiers: { TierHandle },
 	summit: Vector3,
 	checkpoints: { Vector3 },
+	checkpointPads: { BasePart },
 	forgeCore: Vector3,
 }
 
@@ -305,6 +306,7 @@ function Vertical.build(parent: Instance): AscentHandle
 
 	local tiers: { TierHandle } = {}
 	local checkpoints: { Vector3 } = {}
+	local checkpointPads: { BasePart } = {}
 	local prevCenter = Vector3.new(0, cfg.groundY, -cfg.studsPerSide / 2 + 10)
 
 	for i = 1, cfg.ascentTiers do
@@ -381,6 +383,7 @@ function Vertical.build(parent: Instance): AscentHandle
 			beacon.Brightness = 2
 			beacon.Parent = pad
 			table.insert(checkpoints, cpPos)
+			table.insert(checkpointPads, pad)
 		end
 
 		prevCenter = center
@@ -431,6 +434,7 @@ function Vertical.build(parent: Instance): AscentHandle
 		tiers = tiers,
 		summit = summit,
 		checkpoints = checkpoints,
+		checkpointPads = checkpointPads,
 		-- The hot heart of the upper city. Survival reads this to decide where
 		-- the air turns from freezing to furnace-hot.
 		forgeCore = Vector3.new(0, cfg.groundY + cfg.ascentTierHeight * cfg.ascentTiers, 0),

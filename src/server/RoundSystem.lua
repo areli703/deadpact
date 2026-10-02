@@ -117,8 +117,18 @@ end
 --- never be placed inside geometry (or under the ground) on join. This is the
 --- floor-collapse fix — the old code teleported players to a random point at
 --- y=4, often inside a solid building or in mid-air over the void.
-local function safeDropPosition(): Vector3
+local function safeDropPosition(ps: Runtime.PlayerState?): Vector3
 	local District = Runtime.service("District")
+
+	-- Prefer the player's claimed checkpoint; fall back to the spawn apron.
+	if ps ~= nil then
+		local Zones = Runtime.service("Zones")
+		local anchor = Zones.anchorFor(ps)
+		if anchor ~= nil then
+			return anchor + Vector3.new(0, 5, 0)
+		end
+	end
+
 	local base = (District and District.spawnPosition)
 		or Vector3.new(0, Config.District.groundY + 6, 0)
 
@@ -174,7 +184,7 @@ function RoundSystem.dropIn(ps: Runtime.PlayerState): ()
 
 	local root = rootOf(ps)
 	if root ~= nil then
-		root.CFrame = CFrame.new(safeDropPosition())
+		root.CFrame = CFrame.new(safeDropPosition(ps))
 	end
 	local humanoid = humanoidOf(ps)
 	if humanoid ~= nil then

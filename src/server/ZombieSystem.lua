@@ -125,15 +125,27 @@ local function acquire(kind: string): Zombie?
 end
 
 local function spawnPosition(around: Vector3): Vector3
-	local angle = rng:NextNumber() * math.pi * 2
-	local distance = rng:NextNumber(Config.ZombieSpawnDistanceMin, Config.ZombieSpawnDistanceMax)
-	local pos = around + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+	local Zones = Runtime.service("Zones")
+	local cfg = Config.SafeZones
 	local half = Config.District.studsPerSide / 2 - 4
-	return Vector3.new(
-		math.clamp(pos.X, -half, half),
-		Config.District.groundY + 4,
-		math.clamp(pos.Z, -half, half)
-	)
+	-- Retry a few times to keep the horde out of safe zones and checkpoints.
+	-- If every roll lands in safety we accept the last one rather than stall.
+	local pos = around
+	for _ = 1, cfg.zombieSpawnRetries do
+		local angle = rng:NextNumber() * math.pi * 2
+		local distance =
+			rng:NextNumber(Config.ZombieSpawnDistanceMin, Config.ZombieSpawnDistanceMax)
+		pos = around + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		pos = Vector3.new(
+			math.clamp(pos.X, -half, half),
+			Config.District.groundY + 4,
+			math.clamp(pos.Z, -half, half)
+		)
+		if not Zones.isSafe(pos) then
+			return pos
+		end
+	end
+	return pos
 end
 
 local function spawnOne(kind: string, around: Vector3): Zombie?

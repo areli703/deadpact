@@ -43,6 +43,8 @@ export type PlayerState = {
 	hunger: number,
 	thirst: number,
 	tempC: number,
+	-- Highest checkpoint index this player has secured (0 = spawn apron only).
+	respawnZone: number,
 	weaponLowered: boolean,
 	lastFiredAt: number,
 	sprinting: boolean,
@@ -145,6 +147,7 @@ local function onPlayerAdded(player: Player): ()
 		hunger = 1,
 		thirst = 1,
 		tempC = Config.Survival.ambientTemp,
+		respawnZone = 0,
 		weaponLowered = true,
 		lastFiredAt = 0,
 		sprinting = false,

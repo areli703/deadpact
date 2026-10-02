@@ -450,6 +450,21 @@ Config.Survival = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Safe zones & checkpoints
+-- ---------------------------------------------------------------------------
+
+-- Standing in a safe zone normalizes temperature and slowly mends you; the
+-- first survivor to reach a checkpoint claims it as their respawn anchor.
+Config.SafeZones = {
+	radius = 14, -- capture / recovery radius around a checkpoint pad
+	spawnRadius = 22, -- the drop apron is always safe
+	comfortTemp = 18, -- felt temperature a safe zone pulls you toward
+	healRate = 3, -- HP/s mended while safe
+	warmRate = 1.2, -- how fast temperature normalizes while safe
+	zombieSpawnRetries = 8, -- tries to find a non-safe spawn point
+}
+
+-- ---------------------------------------------------------------------------
 -- Validation (called by the server at load time)
 -- ---------------------------------------------------------------------------
 
