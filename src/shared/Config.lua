@@ -348,14 +348,75 @@ Config.ZombieDespawnDistance = 240
 
 -- Wave schedule. Escalates over the Active phase; tied to Config.Round by the
 -- load-time assertion in src/server/Boot.server.lua.
+-- ---------------------------------------------------------------------------
+-- Wave director
+-- ---------------------------------------------------------------------------
+
+-- Every wave is telegraphed before it lands: a warning fires `warningLead`
+-- seconds early with a name the client shows as a full-width alert, so the
+-- player always gets to make a decision (brace, run, feed the fire) before the
+-- horde arrives. Between waves the trickle pauses for `breather` seconds so
+-- the pressure breathes instead of ramping monotonically.
+export type WaveEntry = {
+	atSeconds: number,
+	count: number,
+	specials: number,
+	name: string,
+	warning: string,
+}
+
 Config.Waves = {
-	{ atSeconds = 0, count = 6, specials = 0 },
-	{ atSeconds = 30, count = 10, specials = 1 },
-	{ atSeconds = 60, count = 16, specials = 1 },
-	{ atSeconds = 95, count = 22, specials = 2 },
-	{ atSeconds = 130, count = 30, specials = 3 },
-	{ atSeconds = 165, count = 40, specials = 4 },
-} :: { { atSeconds: number, count: number, specials: number } }
+	{
+		atSeconds = 0,
+		count = 6,
+		specials = 0,
+		name = "FIRST CONTACT",
+		warning = "MOVEMENT IN THE LOWER CITY",
+	},
+	{
+		atSeconds = 30,
+		count = 10,
+		specials = 1,
+		name = "THE GATHERING",
+		warning = "A CROWD FORMS BELOW",
+	},
+	{
+		atSeconds = 60,
+		count = 16,
+		specials = 1,
+		name = "THE PUSH",
+		warning = "THEY HAVE FOUND THE STAIRS",
+	},
+	{
+		atSeconds = 95,
+		count = 22,
+		specials = 2,
+		name = "THE SURGE",
+		warning = "SOMETHING BIG IS CLIMBING",
+	},
+	{
+		atSeconds = 130,
+		count = 30,
+		specials = 3,
+		name = "THE FLOOD",
+		warning = "THE TIER IS OVERRUN",
+	},
+	{
+		atSeconds = 165,
+		count = 40,
+		specials = 4,
+		name = "LAST STAND",
+		warning = "HOLD WHAT YOU HAVE",
+	},
+} :: { WaveEntry }
+
+Config.WaveDirector = {
+	warningLead = 8, -- seconds of warning before a wave lands
+	breather = 6, -- seconds the trickle pauses after each wave lands
+	alertDuration = 4, -- seconds the client banner stays up
+	-- A wave that spawns into an empty map (no living players) still fires its
+	-- alert, so a late joiner is never surprised by a silent horde.
+}
 
 -- ---------------------------------------------------------------------------
 -- Noise / heat
@@ -462,6 +523,30 @@ Config.SafeZones = {
 	healRate = 3, -- HP/s mended while safe
 	warmRate = 1.2, -- how fast temperature normalizes while safe
 	zombieSpawnRetries = 8, -- tries to find a non-safe spawn point
+}
+
+-- ---------------------------------------------------------------------------
+-- Heat sources & cooling
+-- ---------------------------------------------------------------------------
+
+-- The cold is the low-tier killer, so the climb needs an answer to it: fires
+-- you light and feed. A lit brazier radiates warmth in a small radius — the
+-- only way to survive a long night below the forge. Fuel burns down in real
+-- time; a dead fire gives nothing. Safe-zone checkpoints come pre-lit so a
+-- checkpoint is genuinely a place to recover, not just to respawn.
+Config.HeatSources = {
+	maxFuel = 100,
+	startFuel = 100,
+	fuelBurnPerSecond = 1.4, -- a full fire lasts ~70s unattended
+	refuelAmount = 45, -- per wood bundle
+	heatRadius = 26, -- studs of meaningful warmth
+	heatTemp = 28, -- degrees C felt standing at the fire
+	-- Building limits (per player, per round).
+	placeCooldown = 4, -- seconds between placements
+	maxPerPlayer = 3,
+	minSpacing = 12, -- studs between any two live fires
+	-- Braziers seeded at each safe-zone checkpoint so checkpoints are warm.
+	checkpointBrazierFuel = 100,
 }
 
 -- ---------------------------------------------------------------------------
