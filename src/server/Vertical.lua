@@ -33,6 +33,7 @@ export type AscentHandle = {
 	tiers: { TierHandle },
 	summit: Vector3,
 	checkpoints: { Vector3 },
+	forgeCore: Vector3,
 }
 
 local cfg = Config.District
@@ -430,7 +431,13 @@ function Vertical.build(parent: Instance): AscentHandle
 		tiers = tiers,
 		summit = summit,
 		checkpoints = checkpoints,
+		-- The hot heart of the upper city. Survival reads this to decide where
+		-- the air turns from freezing to furnace-hot.
+		forgeCore = Vector3.new(0, cfg.groundY + cfg.ascentTierHeight * cfg.ascentTiers, 0),
 	}
 end
+
+--- Alias kept so callers can use either name (Boot uses Vertical.generate).
+Vertical.generate = Vertical.build
 
 return Vertical

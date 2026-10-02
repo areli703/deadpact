@@ -67,6 +67,10 @@ export type HudStatePayload = {
 	stamina: number,
 	maxStamina: number,
 	heat: number, -- 0..1 normalised local heat
+	hunger: number, -- 0..1 (1 = full)
+	thirst: number, -- 0..1 (1 = full)
+	tempC: number, -- felt ambient temperature in degrees C
+	exposure: "Cold" | "Comfort" | "Heat",
 	weapon: WeaponHudState?,
 	weaponLowered: boolean,
 	extractionOpen: boolean,
@@ -126,7 +130,7 @@ export type ExtractionPointState = {
 	closeAt: number,
 }
 
-export type LootKind = "weapon" | "ammo" | "med"
+export type LootKind = "weapon" | "ammo" | "med" | "food" | "water"
 
 export type LootEntry = {
 	id: string,

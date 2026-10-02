@@ -34,6 +34,8 @@ local COLORS: { [string]: Color3 } = {
 	weapon = Config.Palette.amber,
 	ammo = Config.Palette.cold,
 	med = Color3.fromRGB(120, 220, 140),
+	food = Color3.fromRGB(214, 168, 96),
+	water = Color3.fromRGB(96, 180, 232),
 }
 
 local function makeLabel(part: Part, text: string): BillboardGui
@@ -58,12 +60,16 @@ end
 
 local function rollKind(): Types.LootKind
 	local roll = math.random()
-	if roll < 0.28 then
+	if roll < 0.22 then
 		return "weapon"
-	elseif roll < 0.68 then
+	elseif roll < 0.52 then
 		return "ammo"
+	elseif roll < 0.68 then
+		return "med"
+	elseif roll < 0.84 then
+		return "food"
 	end
-	return "med"
+	return "water"
 end
 
 local function buildEntry(position: Vector3): Types.LootEntry
@@ -86,6 +92,11 @@ local function buildEntry(position: Vector3): Types.LootEntry
 		local types = { "light", "shell", "heavy" }
 		entry.ammoType = types[math.random(1, #types)]
 		entry.amount = Config.Ammo[entry.ammoType].pickup
+	elseif kind == "food" then
+		entry.amount = math.random(Config.Survival.foodRestore.min, Config.Survival.foodRestore.max)
+	elseif kind == "water" then
+		entry.amount =
+			math.random(Config.Survival.waterRestore.min, Config.Survival.waterRestore.max)
 	else
 		entry.amount = 25
 	end
@@ -103,6 +114,10 @@ local function describeText(entry: Types.LootEntry): string
 			string.upper(entry.ammoType :: string),
 			entry.amount or 0
 		)
+	elseif entry.kind == "food" then
+		return string.format("FOOD +%d", entry.amount or 0)
+	elseif entry.kind == "water" then
+		return string.format("WATER +%d", entry.amount or 0)
 	end
 	return string.format("MED x%d", entry.amount or 0)
 end
@@ -190,6 +205,16 @@ function LootSystem.grant(ps: Runtime.PlayerState, entry: Types.LootEntry): stri
 			end
 		end
 		return string.format("+%d %s ammo", amount, string.upper(ammoType))
+	elseif entry.kind == "food" or entry.kind == "water" then
+		local kind = if entry.kind == "food" then "food" else "water"
+		local amount = (entry.amount or 20) / Config.Survival.maxHunger
+		local Survival = Runtime.service("Survival")
+		Survival.grant(ps, kind, amount)
+		return string.format(
+			"+%d %s",
+			entry.amount or 0,
+			if kind == "food" then "food" else "water"
+		)
 	else
 		local heal = entry.amount or 25
 		ps.health = math.min(ps.maxHealth, ps.health + heal)

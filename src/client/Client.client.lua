@@ -34,6 +34,8 @@ local COL_BLOOD = Color3.fromRGB(200, 50, 31)
 local COL_STEEL = Color3.fromRGB(138, 148, 166)
 local COL_HEALTH = Color3.fromRGB(214, 66, 48)
 local COL_STAMINA = Color3.fromRGB(122, 190, 214)
+local COL_HUNGER = Color3.fromRGB(214, 168, 96)
+local COL_THIRST = Color3.fromRGB(96, 180, 232)
 
 -- ---------------------------------------------------------------------------
 -- Small UI factory helpers
@@ -146,7 +148,7 @@ local statusLabel = newInstance("TextLabel", {
 -- Bottom-left survival bars.
 local bars = newInstance("Frame", {
 	Name = "Bars",
-	Size = UDim2.fromOffset(240, 90),
+	Size = UDim2.fromOffset(240, 134),
 	Position = UDim2.new(0, 0, 1, -18),
 	AnchorPoint = Vector2.new(0, 1),
 	BackgroundTransparency = 1,
@@ -154,6 +156,24 @@ local bars = newInstance("Frame", {
 })
 local healthFill = makeBar(bars, 0, 232, COL_HEALTH)
 local staminaFill = makeBar(bars, -22, 232, COL_STAMINA)
+local hungerFill = makeBar(bars, -44, 232, COL_HUNGER)
+local thirstFill = makeBar(bars, -66, 232, COL_THIRST)
+
+-- Exposure warning: only shown when the air itself is hurting you.
+local exposureLabel = newInstance("TextLabel", {
+	Name = "Exposure",
+	Size = UDim2.fromOffset(280, 20),
+	Position = UDim2.new(0, 24, 1, -92),
+	AnchorPoint = Vector2.new(0, 1),
+	BackgroundTransparency = 1,
+	Font = Enum.Font.GothamBold,
+	TextSize = 15,
+	TextColor3 = COL_STAMINA,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTransparency = 1,
+	Text = "",
+	Parent = root,
+})
 
 -- Bottom-right weapon readout.
 local weaponLabel = newInstance("TextLabel", {
@@ -330,6 +350,25 @@ local function applyHudState(payload: any)
 	end
 	setBar(healthFill, (payload.health or 0) / (payload.maxHealth or 100))
 	setBar(staminaFill, (payload.stamina or 0) / (payload.maxStamina or 100))
+	setBar(hungerFill, payload.hunger or 0)
+	setBar(thirstFill, payload.thirst or 0)
+
+	-- Exposure warning: only lit when the air is actually hurting the player.
+	local band = payload.exposure
+	if band == "Cold" then
+		exposureLabel.Text =
+			string.format("EXTREME COLD — FIND HEAT   (%d°C)", math.floor(payload.tempC or 0))
+		exposureLabel.TextColor3 = COL_STAMINA
+		exposureLabel.TextTransparency = 0
+	elseif band == "Heat" then
+		exposureLabel.Text =
+			string.format("EXTREME HEAT — FIND SHADE   (%d°C)", math.floor(payload.tempC or 0))
+		exposureLabel.TextColor3 = COL_AMBER
+		exposureLabel.TextTransparency = 0
+	else
+		exposureLabel.Text = ""
+		exposureLabel.TextTransparency = 1
+	end
 
 	local weapon = payload.weapon
 	if type(weapon) == "table" then

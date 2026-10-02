@@ -153,7 +153,7 @@ export type Phase = {
 Config.Round = {
 	phases = {
 		{ name = "Intermission", duration = 20 },
-		{ name = "Deployment", duration = 15 },
+		{ name = "Deployment", duration = 90 }, -- PREPARATION: scavenge before the siren
 		{ name = "Active", duration = 180 },
 		{ name = "Extraction", duration = 45 },
 		{ name = "Debrief", duration = 20 },
@@ -415,6 +415,38 @@ Config.Player = {
 	staminaRegen = 12, -- per second while not sprinting
 	respawnDelay = 5,
 	bleedoutTime = 30, -- seconds a downed player has before dying
+}
+
+-- ---------------------------------------------------------------------------
+-- Survival (hunger / thirst / exposure)
+-- ---------------------------------------------------------------------------
+
+-- The climb is survival, not just shooting. Hunger and thirst tick down
+-- continuously; exposure is driven by WHERE you are — the frozen Blocks bite
+-- on the low tiers, the Furnace roasts you if you stray too near its heart.
+-- All rates are per-second. Early tuning is forgiving on purpose (design
+-- philosophy: easy to learn, difficult to master).
+Config.Survival = {
+	maxHunger = 100,
+	maxThirst = 100,
+
+	hungerDrain = 0.55, -- empty in ~3 min of play
+	thirstDrain = 0.85, -- thirst is the tighter clock (~2 min)
+	hungerStarveDamage = 2, -- HP/s once hunger hits 0
+	thirstDehydrateDamage = 3, -- HP/s once thirst hits 0
+
+	-- Restores granted by loot items (amounts rolled per pick-up).
+	foodRestore = { min = 18, max = 34 },
+	waterRestore = { min = 22, max = 40 },
+
+	-- Exposure: a global ambient temperature plus hotter zones near the forge.
+	ambientTemp = -6, -- degrees C in the lower city
+	forgeRadius = 70, -- studs from the forge core that counts as "in the heat"
+	forgeTemp = 55, -- degrees C at the forge core
+	coldComfortLow = -10, -- below this you start taking cold damage
+	coldComfortHigh = 45, -- above this you start taking heat damage
+	exposureDamage = 1.5, -- HP/s while outside your comfort band
+	exposureLerp = 0.6, -- how fast felt temperature chases real temperature
 }
 
 -- ---------------------------------------------------------------------------

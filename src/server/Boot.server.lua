@@ -27,6 +27,7 @@ local PactLedger = require(script.Parent.PactLedger)
 local ZombieSystem = require(script.Parent.ZombieSystem)
 local CombatSystem = require(script.Parent.CombatSystem)
 local ExtractionSystem = require(script.Parent.ExtractionSystem)
+local Survival = require(script.Parent.Survival)
 local RoundSystem = require(script.Parent.RoundSystem)
 
 local function boot(): ()
@@ -40,6 +41,7 @@ local function boot(): ()
 	local ascentOk, ascentErr = pcall(function()
 		local ascent = Vertical.generate(workspace, district.propFolder)
 		district.ascent = ascent
+		district.forgeCore = ascent.forgeCore
 	end)
 	if not ascentOk then
 		warn("[DEADPACT] ascent build failed (ground city unaffected): " .. tostring(ascentErr))
@@ -58,12 +60,14 @@ local function boot(): ()
 	Runtime.provide("Round", RoundSystem)
 	Runtime.provide("RoundLoop", RoundSystem)
 	Runtime.provide("District", district)
+	Runtime.provide("Survival", Survival)
 
 	-- 4. Start the systems. ZombieSystem/Pact need RoundLoop + Combat present,
 	--    which they now are.
 	NoiseSystem.start()
 	CombatSystem.start()
 	LootSystem.start()
+	Survival.start()
 	ZombieSystem.start()
 	PactSystem.start()
 	ExtractionSystem.start()

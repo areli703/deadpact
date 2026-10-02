@@ -164,6 +164,9 @@ function RoundSystem.dropIn(ps: Runtime.PlayerState): ()
 	ps.extracted = false
 	ps.health = ps.maxHealth
 	ps.stamina = ps.maxStamina
+	ps.hunger = 1
+	ps.thirst = 1
+	ps.tempC = Config.Survival.ambientTemp
 	ps.weaponLowered = true
 	ps.lastFiredAt = 0
 	ps.sprinting = false
@@ -419,12 +422,17 @@ function RoundSystem.hudFor(
 		}
 	end
 	local Extraction = Runtime.service("Extraction")
+	local Survival = Runtime.service("Survival")
 	return {
 		health = ps.health,
 		maxHealth = ps.maxHealth,
 		stamina = ps.stamina,
 		maxStamina = ps.maxStamina,
 		heat = 0,
+		hunger = ps.hunger,
+		thirst = ps.thirst,
+		tempC = ps.tempC,
+		exposure = Survival.band(ps.tempC),
 		weapon = weapon,
 		weaponLowered = ps.weaponLowered,
 		extractionOpen = Extraction.anyOpen(),
