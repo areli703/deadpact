@@ -59,6 +59,11 @@ function RoundSystem.timeLeft(now: number?): number
 	return left
 end
 
+--- Seconds elapsed in the current phase. Used by the wave director.
+function RoundSystem.phaseElapsed(now: number?): number
+	return math.max(0, (now or Runtime.now()) - phaseStartedAt)
+end
+
 --- The live phase name. Read by ZombieSystem every frame.
 function RoundSystem.phaseName(): Types.PhaseName
 	return currentPhase()
@@ -443,6 +448,9 @@ function RoundSystem.hudFor(
 		thirst = ps.thirst,
 		tempC = ps.tempC,
 		exposure = Survival.band(ps.tempC),
+		medKits = ps.medKits,
+		foodItems = ps.foodItems,
+		waterItems = ps.waterItems,
 		weapon = weapon,
 		weaponLowered = ps.weaponLowered,
 		extractionOpen = Extraction.anyOpen(),
@@ -584,6 +592,19 @@ end
 function RoundSystem.start(): ()
 	running = true
 	phaseStartedAt = Runtime.now()
+	local fn = TRANSITIONS[currentPhase()]
+	if fn ~= nil then
+		local ok, err = pcall(fn)
+		if not ok then
+			warn(
+				string.format(
+					"DEADPACT round: %s transition failed: %s",
+					currentPhase(),
+					tostring(err)
+				)
+			)
+		end
+	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in ipairs(Players:GetPlayers()) do
 		onPlayerAdded(player)

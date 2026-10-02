@@ -38,12 +38,54 @@ local COLORS: { [string]: Color3 } = {
 	water = Color3.fromRGB(96, 180, 232),
 }
 
+local DARK = Color3.fromRGB(26, 28, 32)
+local STEEL = Color3.fromRGB(88, 94, 104)
+local RED = Color3.fromRGB(190, 48, 42)
+local WHITE = Color3.fromRGB(235, 238, 232)
+
+local function makeVisualPart(
+	parent: Instance,
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	color: Color3,
+	material: Enum.Material?
+): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = cframe
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+local function makeRoundPart(
+	parent: Instance,
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	color: Color3,
+	material: Enum.Material?
+): Part
+	local part = makeVisualPart(parent, name, size, cframe, color, material)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+
 local function makeLabel(part: Part, text: string): BillboardGui
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "Label"
-	billboard.Size = UDim2.fromScale(4, 1.4)
-	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-	billboard.AlwaysOnTop = false
+	billboard.Size = UDim2.fromScale(5, 1.7)
+	billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+	billboard.AlwaysOnTop = true
 	billboard.Parent = part
 
 	local label = Instance.new("TextLabel")
@@ -56,6 +98,212 @@ local function makeLabel(part: Part, text: string): BillboardGui
 	label.Parent = billboard
 
 	return billboard
+end
+
+local function makePrompt(part: Part, text: string, lootId: string): ()
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "PickupPrompt"
+	prompt.ActionText = "Pick up"
+	prompt.ObjectText = text
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 14
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = part
+	prompt.Triggered:Connect(function(player: Player)
+		LootSystem.request(player, lootId)
+	end)
+end
+
+local function weaponVisual(entry: Types.LootEntry, model: Model, origin: CFrame): ()
+	local weaponId = entry.weaponId or "pistol"
+	if weaponId == "knife" then
+		makeVisualPart(
+			model,
+			"Blade",
+			Vector3.new(0.35, 0.16, 3.2),
+			origin * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, math.rad(18), 0),
+			Color3.fromRGB(210, 215, 220),
+			Enum.Material.Metal
+		)
+		makeVisualPart(
+			model,
+			"Handle",
+			Vector3.new(0.55, 0.3, 1.1),
+			origin * CFrame.new(0, 0.12, 1.8) * CFrame.Angles(0, math.rad(18), 0),
+			Color3.fromRGB(55, 38, 28),
+			Enum.Material.Wood
+		)
+		makeVisualPart(
+			model,
+			"Guard",
+			Vector3.new(1.3, 0.18, 0.22),
+			origin * CFrame.new(0, 0.18, 1.18),
+			STEEL,
+			Enum.Material.Metal
+		)
+		return
+	end
+
+	local longGun = weaponId == "shotgun" or weaponId == "rifle"
+	local barrelLength = if longGun then 3.8 else 1.8
+	makeVisualPart(
+		model,
+		"Receiver",
+		Vector3.new(if longGun then 2.2 else 1.4, 0.55, 0.5),
+		origin * CFrame.new(0, 0.28, 0),
+		DARK,
+		Enum.Material.Metal
+	)
+	makeVisualPart(
+		model,
+		"Barrel",
+		Vector3.new(barrelLength, 0.22, 0.22),
+		origin * CFrame.new(barrelLength / 2, 0.35, 0),
+		STEEL,
+		Enum.Material.Metal
+	)
+	makeVisualPart(
+		model,
+		"Grip",
+		Vector3.new(0.45, 1.05, 0.42),
+		origin * CFrame.new(-0.45, -0.35, 0) * CFrame.Angles(0, 0, math.rad(-18)),
+		Color3.fromRGB(54, 42, 34),
+		Enum.Material.Wood
+	)
+	makeVisualPart(
+		model,
+		if longGun then "Stock" else "Magazine",
+		Vector3.new(if longGun then 1.4 else 0.35, if longGun then 0.42 else 0.9, 0.44),
+		origin * CFrame.new(if longGun then -1.7 else 0.15, if longGun then 0.24 else -0.42, 0),
+		if longGun then Color3.fromRGB(56, 42, 32) else STEEL,
+		if longGun then Enum.Material.Wood else Enum.Material.Metal
+	)
+end
+
+local function ammoVisual(entry: Types.LootEntry, model: Model, origin: CFrame): ()
+	local shell = entry.ammoType == "shell"
+	makeVisualPart(
+		model,
+		"AmmoBox",
+		Vector3.new(2.6, 0.9, 1.6),
+		origin * CFrame.new(0, 0.32, 0),
+		Color3.fromRGB(45, 72, 58),
+		Enum.Material.Metal
+	)
+	makeVisualPart(
+		model,
+		"AmmoBand",
+		Vector3.new(2.7, 0.12, 1.7),
+		origin * CFrame.new(0, 0.82, 0),
+		Config.Palette.cold,
+		Enum.Material.Neon
+	)
+	for i = -1, 1 do
+		makeRoundPart(
+			model,
+			if shell then "Shell" else "Round",
+			Vector3.new(0.24, 0.24, if shell then 1.2 else 0.8),
+			origin
+				* CFrame.new(i * 0.55, 1.14, 0)
+				* CFrame.Angles(math.rad(90), 0, 0),
+			if shell then RED else Color3.fromRGB(196, 152, 54),
+			Enum.Material.Metal
+		)
+	end
+end
+
+local function medVisual(model: Model, origin: CFrame): ()
+	makeVisualPart(
+		model,
+		"MedKit",
+		Vector3.new(2.4, 1.05, 1.7),
+		origin * CFrame.new(0, 0.4, 0),
+		WHITE,
+		Enum.Material.SmoothPlastic
+	)
+	makeVisualPart(
+		model,
+		"CrossVertical",
+		Vector3.new(0.38, 1.15, 0.12),
+		origin * CFrame.new(0, 0.45, -0.88),
+		RED,
+		Enum.Material.SmoothPlastic
+	)
+	makeVisualPart(
+		model,
+		"CrossHorizontal",
+		Vector3.new(1.05, 0.34, 0.12),
+		origin * CFrame.new(0, 0.45, -0.9),
+		RED,
+		Enum.Material.SmoothPlastic
+	)
+	makeVisualPart(
+		model,
+		"Handle",
+		Vector3.new(1.1, 0.2, 0.25),
+		origin * CFrame.new(0, 1.05, 0),
+		STEEL,
+		Enum.Material.Metal
+	)
+end
+
+local function foodVisual(model: Model, origin: CFrame): ()
+	makeRoundPart(
+		model,
+		"Can",
+		Vector3.new(1.35, 1.35, 1.6),
+		origin * CFrame.new(0, 0.7, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		Color3.fromRGB(164, 96, 54),
+		Enum.Material.Metal
+	)
+	makeVisualPart(
+		model,
+		"Label",
+		Vector3.new(1.45, 0.08, 0.95),
+		origin * CFrame.new(0, 0.7, -0.68),
+		Color3.fromRGB(242, 204, 112),
+		Enum.Material.SmoothPlastic
+	)
+end
+
+local function waterVisual(model: Model, origin: CFrame): ()
+	makeRoundPart(
+		model,
+		"Bottle",
+		Vector3.new(0.9, 0.9, 2.2),
+		origin * CFrame.new(0, 0.9, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		Color3.fromRGB(115, 194, 235),
+		Enum.Material.Glass
+	)
+	makeRoundPart(
+		model,
+		"Cap",
+		Vector3.new(0.45, 0.45, 0.38),
+		origin * CFrame.new(0, 2.18, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		Config.Palette.cold,
+		Enum.Material.SmoothPlastic
+	)
+end
+
+local function makeLootVisual(entry: Types.LootEntry, root: Part): Model
+	local model = Instance.new("Model")
+	model.Name = "Art_" .. entry.id
+	model.Parent = root
+
+	local origin = root.CFrame
+	if entry.kind == "weapon" then
+		weaponVisual(entry, model, origin)
+	elseif entry.kind == "ammo" then
+		ammoVisual(entry, model, origin)
+	elseif entry.kind == "med" then
+		medVisual(model, origin)
+	elseif entry.kind == "food" then
+		foodVisual(model, origin)
+	else
+		waterVisual(model, origin)
+	end
+	return model
 end
 
 local function rollKind(): Types.LootKind
@@ -128,16 +376,18 @@ function LootSystem.spawnAt(position: Vector3, parent: Instance): LootPart
 
 	local part = Instance.new("Part")
 	part.Name = entry.id
-	part.Size = Vector3.new(1.6, 1.6, 1.6)
-	part.Position = position
+	part.Size = Vector3.new(4, 4, 4)
+	part.Position = position + Vector3.new(0, 0.4, 0)
 	part.Anchored = true
 	part.CanCollide = false
-	part.CanQuery = false
-	part.Color = COLORS[entry.kind]
-	part.Material = Enum.Material.Neon
+	part.CanQuery = true
+	part.Transparency = 1
 	part.Parent = parent
 
-	local label = makeLabel(part, describeText(entry))
+	local text = describeText(entry)
+	makeLootVisual(entry, part)
+	local label = makeLabel(part, text)
+	makePrompt(part, text, entry.id)
 
 	local record: LootPart = { entry = entry, part = part, label = label }
 	liveLoot[entry.id] = record
@@ -206,20 +456,36 @@ function LootSystem.grant(ps: Runtime.PlayerState, entry: Types.LootEntry): stri
 		end
 		return string.format("+%d %s ammo", amount, string.upper(ammoType))
 	elseif entry.kind == "food" or entry.kind == "water" then
-		local kind = if entry.kind == "food" then "food" else "water"
-		local amount = (entry.amount or 20) / Config.Survival.maxHunger
-		local Survival = Runtime.service("Survival")
-		Survival.grant(ps, kind, amount)
-		return string.format(
-			"+%d %s",
-			entry.amount or 0,
-			if kind == "food" then "food" else "water"
-		)
+		if entry.kind == "food" then
+			ps.foodItems += 1
+			return "+1 food"
+		end
+		ps.waterItems += 1
+		return "+1 water"
 	else
-		local heal = entry.amount or 25
-		ps.health = math.min(ps.maxHealth, ps.health + heal)
-		return string.format("+%d HP", heal)
+		ps.medKits += 1
+		return "+1 med kit"
 	end
+end
+
+function LootSystem.useConsumable(player: Player, kind: string): ()
+	local ps = Runtime.getState(player)
+	if ps == nil or not ps.alive or ps.downed then
+		return
+	end
+	if kind == "med" and ps.medKits > 0 then
+		ps.medKits -= 1
+		ps.health = math.min(ps.maxHealth, ps.health + 35)
+	elseif kind == "food" and ps.foodItems > 0 then
+		ps.foodItems -= 1
+		Runtime.service("Survival").grant(ps, "food", 0.35)
+	elseif kind == "water" and ps.waterItems > 0 then
+		ps.waterItems -= 1
+		Runtime.service("Survival").grant(ps, "water", 0.4)
+	else
+		return
+	end
+	Net.send(ps.player, "HudState", Runtime.service("Round").hudFor(ps))
 end
 
 --- Server-side handler for a LootRequest.
@@ -293,6 +559,11 @@ function LootSystem.start(): ()
 		local near = LootSystem.nearestTo(ps.position, 16)
 		if near ~= nil then
 			LootSystem.request(player, near.entry.id)
+		end
+	end)
+	remotes.events.UseConsumable.OnServerEvent:Connect(function(player: Player, kind: unknown)
+		if typeof(kind) == "string" then
+			LootSystem.useConsumable(player, kind)
 		end
 	end)
 end

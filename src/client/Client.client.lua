@@ -381,15 +381,23 @@ local function applyHudState(payload: any)
 				string.format("  RELOADING %d%%", math.floor((weapon.reloadProgress or 0) * 100))
 		end
 		weaponLabel.Text = string.format(
-			"%s\n%d / %d   ·   %d reserve%s",
+			"%s\n%d / %d   ·   %d reserve%s\n4 Med:%d   5 Food:%d   6 Water:%d",
 			tostring(weapon.displayName or "—"),
 			math.floor(weapon.ammoInMag or 0),
 			math.floor(weapon.magazine or 0),
 			math.floor(weapon.reserve or 0),
-			reload
+			reload,
+			math.floor(payload.medKits or 0),
+			math.floor(payload.foodItems or 0),
+			math.floor(payload.waterItems or 0)
 		)
 	else
-		weaponLabel.Text = "UNARMED"
+		weaponLabel.Text = string.format(
+			"UNARMED\n4 Med:%d   5 Food:%d   6 Water:%d",
+			math.floor(payload.medKits or 0),
+			math.floor(payload.foodItems or 0),
+			math.floor(payload.waterItems or 0)
+		)
 	end
 
 	if payload.isDowned then
@@ -576,6 +584,12 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 		fire("ReloadRequest")
 	elseif input.KeyCode == Enum.KeyCode.E then
 		fire("LootRequest")
+	elseif input.KeyCode == Enum.KeyCode.Four then
+		fire("UseConsumable", "med")
+	elseif input.KeyCode == Enum.KeyCode.Five then
+		fire("UseConsumable", "food")
+	elseif input.KeyCode == Enum.KeyCode.Six then
+		fire("UseConsumable", "water")
 	elseif input.KeyCode == Enum.KeyCode.Q then
 		fire("SwapWeapon")
 	elseif input.KeyCode == Enum.KeyCode.F then

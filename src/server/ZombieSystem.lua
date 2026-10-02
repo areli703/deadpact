@@ -44,6 +44,36 @@ local spawnAccumulator = 0
 local waveBroadcast: (number, number) -> () = function() end
 local rng = Random.new()
 
+local function attachPart(
+	model: Model,
+	body: Part,
+	name: string,
+	size: Vector3,
+	offset: CFrame,
+	color: Color3,
+	material: Enum.Material?
+): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = body.CFrame * offset
+	part.Anchored = false
+	part.CanCollide = false
+	part.CanQuery = true
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = model
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = body
+	weld.Part1 = part
+	weld.Parent = part
+
+	return part
+end
+
 local function buildModel(kind: string): (Model, Part)
 	local cfg = Config.Zombies[kind]
 	local model = Instance.new("Model")
@@ -61,12 +91,29 @@ local function buildModel(kind: string): (Model, Part)
 	body.BottomSurface = Enum.SurfaceType.Smooth
 	body.Parent = model
 
+	local labelGui = Instance.new("BillboardGui")
+	labelGui.Name = "ThreatLabel"
+	labelGui.Size = UDim2.fromScale(4, 1)
+	labelGui.StudsOffset = Vector3.new(0, cfg.size.Y + 1.3, 0)
+	labelGui.AlwaysOnTop = true
+	labelGui.Parent = body
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.TextColor3 = Config.Palette.blood
+	label.TextStrokeTransparency = 0.25
+	label.Text = string.upper(cfg.displayName)
+	label.Parent = labelGui
+
 	local head = Instance.new("Part")
 	head.Name = "Head"
 	head.Shape = Enum.PartType.Ball
 	head.Size = Vector3.new(cfg.size.X, cfg.size.X, cfg.size.X)
-	head.Color = cfg.color
-	head.Material = Enum.Material.Sand
+	head.Color = cfg.color:Lerp(Color3.fromRGB(190, 190, 160), 0.18)
+	head.Material = Enum.Material.Slate
 	head.CanCollide = false
 	head.CanQuery = false
 	head.Parent = model
@@ -77,6 +124,74 @@ local function buildModel(kind: string): (Model, Part)
 	motor.Part1 = head
 	motor.C0 = CFrame.new(0, cfg.size.Y / 2, 0)
 	motor.Parent = body
+
+	local armColor = cfg.color:Lerp(Color3.fromRGB(165, 155, 130), 0.25)
+	local legColor = cfg.color:Lerp(Color3.fromRGB(28, 30, 34), 0.35)
+	attachPart(
+		model,
+		body,
+		"LeftArm",
+		Vector3.new(0.45, cfg.size.Y * 0.62, 0.45),
+		CFrame.new(-cfg.size.X * 0.75, cfg.size.Y * 0.02, -0.25)
+			* CFrame.Angles(math.rad(-24), 0, math.rad(-12)),
+		armColor,
+		Enum.Material.Slate
+	)
+	attachPart(
+		model,
+		body,
+		"RightArm",
+		Vector3.new(0.45, cfg.size.Y * 0.62, 0.45),
+		CFrame.new(cfg.size.X * 0.75, cfg.size.Y * 0.02, -0.25)
+			* CFrame.Angles(math.rad(-24), 0, math.rad(12)),
+		armColor,
+		Enum.Material.Slate
+	)
+	attachPart(
+		model,
+		body,
+		"LeftLeg",
+		Vector3.new(0.5, cfg.size.Y * 0.55, 0.5),
+		CFrame.new(-cfg.size.X * 0.25, -cfg.size.Y * 0.74, 0),
+		legColor,
+		Enum.Material.Concrete
+	)
+	attachPart(
+		model,
+		body,
+		"RightLeg",
+		Vector3.new(0.5, cfg.size.Y * 0.55, 0.5),
+		CFrame.new(cfg.size.X * 0.25, -cfg.size.Y * 0.74, 0),
+		legColor,
+		Enum.Material.Concrete
+	)
+	attachPart(
+		model,
+		body,
+		"ChestRag",
+		Vector3.new(cfg.size.X * 1.08, cfg.size.Y * 0.18, 0.12),
+		CFrame.new(0, cfg.size.Y * 0.18, -cfg.size.Z / 2 - 0.04),
+		Config.Palette.blood,
+		Enum.Material.Fabric
+	)
+	attachPart(
+		model,
+		body,
+		"LeftEye",
+		Vector3.new(0.18, 0.18, 0.08),
+		CFrame.new(-cfg.size.X * 0.22, cfg.size.Y / 2 + cfg.size.X * 0.08, -cfg.size.X / 2),
+		Config.Palette.amber,
+		Enum.Material.Neon
+	)
+	attachPart(
+		model,
+		body,
+		"RightEye",
+		Vector3.new(0.18, 0.18, 0.08),
+		CFrame.new(cfg.size.X * 0.22, cfg.size.Y / 2 + cfg.size.X * 0.08, -cfg.size.X / 2),
+		Config.Palette.amber,
+		Enum.Material.Neon
+	)
 
 	model.PrimaryPart = body
 	return model, body
@@ -124,6 +239,26 @@ local function acquire(kind: string): Zombie?
 	return zombie
 end
 
+local function ascentLevel(position: Vector3): number
+	local tierHeight = math.max(1, Config.District.ascentTierHeight)
+	return math.clamp(math.floor((position.Y - Config.District.groundY) / tierHeight) + 1, 1, 10)
+end
+
+local function difficultyScale(position: Vector3): number
+	return 1 + (ascentLevel(position) - 1) * 0.16
+end
+
+local function chooseKindFor(position: Vector3): string
+	local level = ascentLevel(position)
+	local roll = rng:NextNumber()
+	if level >= 7 and roll < 0.32 then
+		return "stalker"
+	elseif level >= 4 and roll < 0.26 then
+		return "shrieker"
+	end
+	return "walker"
+end
+
 local function spawnPosition(around: Vector3): Vector3
 	local Zones = Runtime.service("Zones")
 	local cfg = Config.SafeZones
@@ -155,7 +290,7 @@ local function spawnOne(kind: string, around: Vector3): Zombie?
 	end
 	local cfg = Config.Zombies[kind]
 	zombie.active = true
-	zombie.health = cfg.health
+	zombie.health = math.floor(cfg.health * difficultyScale(around))
 	zombie.lastAttackAt = 0
 	zombie.targetUserId = nil
 	zombie.spawnedAt = Runtime.now()
@@ -219,7 +354,12 @@ local function applyContactDamage(zombie: Zombie, ps: Runtime.PlayerState, now: 
 	end
 	zombie.lastAttackAt = now
 	local combat = Runtime.service("Combat")
-	combat.damagePlayer(ps, cfg.damage, "Zombie", zombie.part.Position)
+	combat.damagePlayer(
+		ps,
+		cfg.damage * difficultyScale(zombie.part.Position),
+		"Zombie",
+		zombie.part.Position
+	)
 end
 
 local function moveZombie(zombie: Zombie, dt: number, goal: Vector3): ()
@@ -275,17 +415,21 @@ end
 
 local function step(dt: number, now: number): ()
 	local roundLoop = Runtime.service("RoundLoop")
-	if roundLoop.phaseName() == "Active" then
+	local hordeLive = roundLoop.phaseName() == "Active" or roundLoop.phaseName() == "Deployment"
+	if hordeLive then
 		advanceWave(roundLoop)
 		spawnAccumulator += dt
 		if spawnAccumulator >= Config.ZombieSpawnInterval then
 			spawnAccumulator = 0
-			local wave = Config.Waves[math.max(1, waveIndex)]
 			local states = Runtime.aliveStates()
 			local around = if #states > 0 then states[1].position else Vector3.zero
+			local wave = Config.Waves[math.max(1, waveIndex)]
+			local targetCount = if roundLoop.phaseName() == "Deployment"
+				then math.max(8, math.floor(wave.count * 0.75))
+				else wave.count
 			local activeCount = #active
-			if activeCount < wave.count and activeCount < Config.ZombieMaxCount then
-				spawnOne("walker", around)
+			if activeCount < targetCount and activeCount < Config.ZombieMaxCount then
+				spawnOne(chooseKindFor(around), around)
 			end
 		end
 	end

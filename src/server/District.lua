@@ -973,11 +973,19 @@ end
 
 local function makeLootSpots(cfg: Config.DistrictConfig): { Vector3 }
 	local spots: { Vector3 } = {}
-	local half = cfg.studsPerSide / 2 - 8
-	for _ = 1, cfg.lootCount do
-		local x = math.random() * half * 2 - half
-		local z = math.random() * half * 2 - half
-		table.insert(spots, Vector3.new(x, cfg.groundY + 2, z))
+	local clusters = {
+		Vector3.new(-36, 0, 18), -- shop/apartment side
+		Vector3.new(34, 0, 24), -- police/storefront side
+		Vector3.new(-28, 0, -34), -- alley cache
+		Vector3.new(28, 0, -28), -- route toward the ascent
+		Vector3.new(0, 0, cfg.studsPerSide / 2 - 26), -- spawn apron emergency supply
+	}
+	for i = 1, cfg.lootCount do
+		local center = clusters[((i - 1) % #clusters) + 1]
+		local spread = if i <= #clusters then 5 else 10
+		local x = center.X + math.random(-spread, spread)
+		local z = center.Z + math.random(-spread, spread)
+		table.insert(spots, Vector3.new(x, cfg.groundY + 1.8, z))
 	end
 	return spots
 end

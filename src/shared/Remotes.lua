@@ -40,6 +40,7 @@ local EVENT_NAMES = {
 	"FireRequest", -- C->S  player wants to fire
 	"ReloadRequest", -- C->S  player wants to reload
 	"LootRequest", -- C->S  player wants to take a loot entry
+	"UseConsumable", -- C->S  med | food | water quick-use
 	"ReviveRequest", -- C->S  revive a downed pact ally
 	"SwapWeapon", -- C->S  switch active weapon slot
 }

@@ -307,7 +307,7 @@ function Vertical.build(parent: Instance): AscentHandle
 	local tiers: { TierHandle } = {}
 	local checkpoints: { Vector3 } = {}
 	local checkpointPads: { BasePart } = {}
-	local prevCenter = Vector3.new(0, cfg.groundY, -cfg.studsPerSide / 2 + 10)
+	local prevExit = Vector3.new(0, cfg.groundY + 1.5, cfg.studsPerSide / 2 - 28)
 
 	for i = 1, cfg.ascentTiers do
 		local alpha = (i - 1) / math.max(1, cfg.ascentTiers - 1)
@@ -323,16 +323,22 @@ function Vertical.build(parent: Instance): AscentHandle
 
 		local platform = makePlatform(tierFolder, y, radius, color)
 
-		-- Grand staircase climbing in from the tier below.
-		local foot = prevCenter + Vector3.new(0, 0, -cfg.ascentPlatformRadius * 0.7)
-		local head = center + Vector3.new(0, 0, -radius * 0.72)
+		-- A single continuous climb: enter each tier from one rim, cross the
+		-- platform, then leave from the opposite rim toward the next tier.
+		local side = if i % 2 == 1 then -1 else 1
+		local head = center + Vector3.new(0, 2.2, side * radius * 0.72)
+		local nextExit = center + Vector3.new(0, 2.2, -side * radius * 0.72)
+		local foot = prevExit
 		makeStairs(tierFolder, foot, head, cfg.ascentStairWidth, color)
 
-		-- A second, narrower fire-escape style climb on the opposite side so a
-		-- solo player always has a route that is not the main funnel.
-		local sideFoot = prevCenter + Vector3.new(cfg.ascentPlatformRadius * 0.55, 0, 0)
-		local sideHead = center + Vector3.new(radius * 0.6, 0, 0)
-		makeStairs(tierFolder, sideFoot, sideHead, cfg.ascentStairWidth * 0.55, cfg.trimColor)
+		newPart({
+			Name = "TierRoute",
+			Size = Vector3.new(cfg.ascentStairWidth + 6, 1.2, radius * 1.45),
+			CFrame = CFrame.new(center + Vector3.new(0, 2.4, 0)),
+			Material = Enum.Material.DiamondPlate,
+			Color = cfg.trimColor,
+			Parent = tierFolder,
+		})
 
 		-- Enterable blocks around the tier rim.
 		local blocks: { BasePart } = {}
@@ -386,7 +392,7 @@ function Vertical.build(parent: Instance): AscentHandle
 			table.insert(checkpointPads, pad)
 		end
 
-		prevCenter = center
+		prevExit = nextExit
 	end
 
 	-- The summit: the current final objective, a wide boss arena in the clouds.
@@ -423,7 +429,7 @@ function Vertical.build(parent: Instance): AscentHandle
 
 	makeStairs(
 		summitFolder,
-		prevCenter + Vector3.new(0, 0, -cfg.ascentPlatformRadius * 0.7),
+		prevExit,
 		summit + Vector3.new(0, 0, -55),
 		cfg.ascentStairWidth,
 		tint(1)

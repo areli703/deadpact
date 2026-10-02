@@ -87,17 +87,17 @@ Config.District = {
 
 	extractionCount = 3,
 	extractionRadius = 12,
-	lootCount = 40,
+	lootCount = 16,
 
 	-- ---- THE ASCENT ------------------------------------------------------
 	-- The ground city above is only the start: tier after tier stacks upward
 	-- into the clouds, matching the concept art's pyramid silhouette. Each tier
 	-- is a platform ring holding enterable blocks, joined to the one below by
 	-- grand staircases. Tune these to change how tall the world feels.
-	ascentTiers = 5,
-	ascentTierHeight = 88,
+	ascentTiers = 10,
+	ascentTierHeight = 30,
 	ascentStairWidth = 16,
-	ascentPlatformRadius = 76,
+	ascentPlatformRadius = 52,
 	ascentBlockCount = 3,
 	-- Cold at the bottom, fire at the top: per-tier tint blended by Vertical.
 	ascentColdColor = Color3.fromRGB(96, 128, 168),
@@ -152,8 +152,8 @@ export type Phase = {
 
 Config.Round = {
 	phases = {
-		{ name = "Intermission", duration = 20 },
-		{ name = "Deployment", duration = 90 }, -- PREPARATION: scavenge before the siren
+		{ name = "Intermission", duration = 3 },
+		{ name = "Deployment", duration = 12 }, -- quick test prep before the siren
 		{ name = "Active", duration = 180 },
 		{ name = "Extraction", duration = 45 },
 		{ name = "Debrief", duration = 20 },
@@ -341,9 +341,9 @@ Config.Zombies = {
 
 Config.ZombieMaxCount = 70
 Config.ZombiePoolWarmup = 30
-Config.ZombieSpawnInterval = 2.5
-Config.ZombieSpawnDistanceMin = 45
-Config.ZombieSpawnDistanceMax = 70
+Config.ZombieSpawnInterval = 1.2
+Config.ZombieSpawnDistanceMin = 28
+Config.ZombieSpawnDistanceMax = 42
 Config.ZombieDespawnDistance = 240
 
 -- Wave schedule. Escalates over the Active phase; tied to Config.Round by the
