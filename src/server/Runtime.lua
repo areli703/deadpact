@@ -48,6 +48,10 @@ export type PlayerState = {
 	bankedScore: number,
 	kills: number,
 	position: Vector3,
+	-- The Payload: true while this player is carrying the round's objective.
+	carryingPayload: boolean,
+	-- Set true when this player has banked the payload at an extraction zone.
+	securedPayload: boolean,
 }
 
 export type StepFn = (dt: number, now: number) -> ()
@@ -104,6 +108,14 @@ end
 local function makeSlots(): { WeaponSlot }
 	return {
 		{
+			weaponId = "knife",
+			ammoInMag = 0,
+			reserve = 0,
+			reloading = false,
+			reloadEndsAt = 0,
+			lastFiredAt = 0,
+		},
+		{
 			weaponId = Config.StartingWeapon,
 			ammoInMag = Config.Weapons[Config.StartingWeapon].magazine,
 			reserve = Config.Ammo.light.max,
@@ -135,6 +147,8 @@ local function onPlayerAdded(player: Player): ()
 		bankedScore = 0,
 		kills = 0,
 		position = Vector3.zero,
+		carryingPayload = false,
+		securedPayload = false,
 	}
 end
 

@@ -14,6 +14,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local Runtime = require(script.Parent.Runtime)
+local Net = require(script.Parent.Net)
 local NoiseSystem = require(script.Parent.NoiseSystem)
 
 local LootSystem = {}

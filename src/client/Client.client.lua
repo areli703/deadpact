@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Config = require(Shared:WaitForChild("Config"))
 local Util = require(Shared:WaitForChild("Util"))
+local Viewmodel = require(script.Parent.Viewmodel)
 
 local LocalPlayer = Players.LocalPlayer
 local remotes = Remotes.ensure()
@@ -332,6 +333,9 @@ local function applyHudState(payload: any)
 
 	local weapon = payload.weapon
 	if type(weapon) == "table" then
+		if type(weapon.id) == "string" then
+			Viewmodel.setWeapon(weapon.id)
+		end
 		local reload = ""
 		if weapon.reloading then
 			reload =
@@ -459,6 +463,7 @@ bind("HitMarker", function(payload)
 		end)
 	end
 end)
+bind("WeaponFeedback", Viewmodel.applyFeedback)
 bind("ExtractionState", function(payload)
 	if type(payload) == "table" and payload.open then
 		statusLabel.Text = "EXTRACTION OPEN — get to the zone"
@@ -526,6 +531,8 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 			return
 		end
 		fire("FireRequest")
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		Viewmodel.setAiming(true)
 	elseif input.KeyCode == Enum.KeyCode.R then
 		fire("ReloadRequest")
 	elseif input.KeyCode == Enum.KeyCode.E then
@@ -542,6 +549,8 @@ end)
 UserInputService.InputEnded:Connect(function(input: InputObject)
 	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
 		fire("SprintState", false)
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		Viewmodel.setAiming(false)
 	end
 end)
 
@@ -571,3 +580,6 @@ end)
 if not RunService:IsClient() then
 	return
 end
+
+-- Bring up the first-person weapon model.
+Viewmodel.start()

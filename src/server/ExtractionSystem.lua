@@ -6,7 +6,7 @@
 	opens; a player who stands inside one for Config.Extraction.holdTime seconds
 	banks their score and leaves with it — extracted players drop out of the horde
 	target list, so the choice to extract is a real risk/reward decision.
-]] 
+]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -87,7 +87,10 @@ end
 --- True if a position sits inside an open pad.
 function ExtractionSystem.anyOpenAt(position: Vector3): boolean
 	for _, point in ipairs(points) do
-		if point.open and (point.position - position).Magnitude <= Config.District.extractionRadius then
+		if
+			point.open
+			and (point.position - position).Magnitude <= Config.District.extractionRadius
+		then
 			return true
 		end
 	end

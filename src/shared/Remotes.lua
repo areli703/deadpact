@@ -32,6 +32,7 @@ local EVENT_NAMES = {
 	"HitMarker", -- S->C  hit / kill feedback
 	"Debrief", -- S->C  end-of-round summary
 	"ExtractionState", -- S->C  which extraction zones are open
+	"WeaponFeedback", -- S->C  shot/hit feedback for the viewmodel (recoil, flash)
 
 	"PactChoice", -- C->S  Ally | Fight | Ignore
 	"LowerWeapon", -- C->S  toggle lowered weapon

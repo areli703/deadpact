@@ -9,7 +9,13 @@
 	Everything here is server-authoritative: the client only ever sends a
 	*request*. Fire is resolved with a real raycast from the shooter's camera
 	root, so a client cannot simply declare a hit.
-]] 
+
+	Two weapon families share this file:
+	 * Firearms — hitscan, spread, magazines, reloads, headshot multipliers,
+	   per-pellet resolution for shotguns, and a muzzle flash / recoil signal.
+	 * Melee — a short-range swing with a backstab multiplier and ZERO noise,
+	   so the knife is the quiet way to clear a room or finish a downed enemy.
+]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -64,7 +70,7 @@ function CombatSystem.damagePlayer(
 end
 
 -- ---------------------------------------------------------------------------
--- Reload bookkeeping (shared by fire + reload request + start-of-mag)
+-- Reload bookkeeping (firearms only)
 -- ---------------------------------------------------------------------------
 
 local function beginReload(slot: Runtime.WeaponSlot): ()
@@ -72,7 +78,7 @@ local function beginReload(slot: Runtime.WeaponSlot): ()
 		return
 	end
 	local cfg = Config.Weapons[slot.weaponId]
-	if slot.ammoInMag >= cfg.magazine or slot.reserve <= 0 then
+	if cfg.melee or slot.ammoInMag >= cfg.magazine or slot.reserve <= 0 then
 		return
 	end
 	slot.reloading = true
@@ -89,17 +95,87 @@ local function finishReload(slot: Runtime.WeaponSlot): ()
 end
 
 -- ---------------------------------------------------------------------------
+-- Feedback
+-- ---------------------------------------------------------------------------
+
+local function sendFeedback(ps: Runtime.PlayerState, cfg: Config.WeaponConfig, origin: Vector3): ()
+	Net.send(ps.player, "WeaponFeedback", {
+		weaponId = ps.slots[ps.activeSlot].weaponId,
+		melee = cfg.melee,
+		recoil = cfg.recoil,
+		muzzleScale = cfg.muzzleScale,
+		origin = origin,
+	})
+end
+
+-- ---------------------------------------------------------------------------
 -- Firing
 -- ---------------------------------------------------------------------------
 
+local function raycastFrom(
+	ps: Runtime.PlayerState,
+	origin: Vector3,
+	direction: Vector3,
+	range: number
+)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { ps.player.Character }
+	return workspace:Raycast(origin, direction * range, params)
+end
+
+--- Melee swing: a short raycast that hits anything in front of the player,
+--- with a backstab multiplier when the hit comes from behind.
+local function meleeSwing(ps: Runtime.PlayerState, cfg: Config.WeaponConfig, now: number): ()
+	local slot = ps.slots[ps.activeSlot]
+	slot.lastFiredAt = now
+	ps.lastFiredAt = now
+	ps.weaponLowered = false
+
+	local root = rootOf(ps)
+	if root == nil then
+		return
+	end
+	local origin = root.Position + Vector3.new(0, 1.2, 0)
+	local direction = root.CFrame.LookVector
+
+	-- The knife makes no noise — that is its whole point.
+	local result = raycastFrom(ps, origin, direction, cfg.range)
+	local hit = result ~= nil
+	local killed = false
+	if result ~= nil then
+		local z = zombies().byPart(result.Instance)
+		if z ~= nil then
+			local damage = cfg.damage
+			-- Backstab: if the zombie is facing away from us, hit it harder.
+			local toMe = (origin - z.part.Position).Unit
+			if z.part.CFrame.LookVector:Dot(toMe) > 0.25 then
+				damage *= cfg.backstabMultiplier
+			end
+			local _, didKill = zombies().damage(z, damage)
+			killed = didKill
+			if killed then
+				ps.kills += 1
+			end
+		end
+	end
+
+	sendFeedback(ps, cfg, origin)
+	Net.send(ps.player, "HitMarker", {
+		hit = hit,
+		killed = killed,
+		source = "Melee",
+	})
+end
+
 --- Resolves one shot for a player: cadence, ammo, a real raycast, damage,
---- noise and hit feedback.
+--- noise and hit feedback. Handles multi-pellet weapons (shotguns).
 function CombatSystem.fire(ps: Runtime.PlayerState): ()
 	if not ps.alive or ps.downed or ps.extracted then
 		return
 	end
 	local slot = ps.slots[ps.activeSlot]
-	if slot == nil or slot.reloading then
+	if slot == nil then
 		return
 	end
 	local cfg = Config.Weapons[slot.weaponId]
@@ -107,12 +183,21 @@ function CombatSystem.fire(ps: Runtime.PlayerState): ()
 	if now - slot.lastFiredAt < 1 / cfg.fireRate then
 		return
 	end
+
+	if cfg.melee then
+		meleeSwing(ps, cfg, now)
+		return
+	end
+
+	if slot.reloading then
+		return
+	end
 	if slot.ammoInMag <= 0 then
 		beginReload(slot)
 		return
 	end
 
-	local root = rootOf(ps.player)
+	local root = rootOf(ps)
 	if root == nil then
 		return
 	end
@@ -123,47 +208,54 @@ function CombatSystem.fire(ps: Runtime.PlayerState): ()
 	slot.ammoInMag -= 1
 
 	local origin = root.Position + Vector3.new(0, 1.2, 0)
-	local direction: Vector3 = root.CFrame.LookVector
+	local baseDir: Vector3 = root.CFrame.LookVector
 	local spread = math.rad(cfg.spread)
-	direction = (CFrame.fromEulerAnglesXYZ(
-		(rng:NextNumber() - 0.5) * spread,
-		(rng:NextNumber() - 0.5) * spread,
-		0
-	) * direction).Unit
+	local pellets = Config.PelletCounts[slot.weaponId] or 1
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { ps.player.Character }
-	local result = workspace:Raycast(origin, direction * cfg.range, params)
+	local anyHit = false
+	local anyKill = false
+	for _ = 1, pellets do
+		local direction = baseDir
+		if spread > 0 then
+			direction = (CFrame.fromEulerAnglesXYZ(
+				(rng:NextNumber() - 0.5) * spread,
+				(rng:NextNumber() - 0.5) * spread,
+				0
+			) * baseDir).Unit
+		end
 
-	NoiseSystem.add(origin, cfg.noise)
-
-	local hit = result ~= nil
-	local killed = false
-	if result ~= nil then
-		local zombie = zombies().byPart(result.Instance)
-		if zombie ~= nil then
-			local _, didKill = zombies().damage(zombie, cfg.damage)
-			killed = didKill
-			if killed then
-				ps.kills += 1
+		local result = raycastFrom(ps, origin, direction, cfg.range)
+		if result ~= nil then
+			anyHit = true
+			local z = zombies().byPart(result.Instance)
+			if z ~= nil then
+				local damage = cfg.damage
+				if result.Instance.Name == "Head" then
+					damage *= cfg.headshotMultiplier
+				end
+				local _, didKill = zombies().damage(z, damage)
+				if didKill then
+					anyKill = true
+					ps.kills += 1
+				end
 			end
 		end
 	end
 
-	local marker: Types.HitMarkerPayload = {
-		hit = hit,
-		killed = killed,
+	NoiseSystem.add(origin, cfg.noise)
+	sendFeedback(ps, cfg, origin)
+	Net.send(ps.player, "HitMarker", {
+		hit = anyHit,
+		killed = anyKill,
 		source = "Weapon",
-	}
-	Net.send(ps.player, "HitMarker", marker)
+	})
 
 	if slot.ammoInMag <= 0 then
 		beginReload(slot)
 	end
 end
 
---- Player-initiated reload.
+--- Player-initiated reload (no-op for melee).
 function CombatSystem.reload(ps: Runtime.PlayerState): ()
 	local slot = ps.slots[ps.activeSlot]
 	if slot ~= nil then
@@ -177,6 +269,7 @@ function CombatSystem.swap(ps: Runtime.PlayerState): ()
 		return
 	end
 	ps.activeSlot = ps.activeSlot % #ps.slots + 1
+	Net.send(ps.player, "HudState", Runtime.service("Round").hudFor(ps))
 end
 
 --- Raises/lowers the weapon (lowering is what unlocks a pact prompt).

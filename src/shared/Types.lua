@@ -36,6 +36,9 @@ export type RoundStatePayload = {
 	survivors: number,
 	dead: number,
 	extracted: number,
+	-- The round objective.
+	payloadState: string, -- "Idle" | "Carried" | "Secured"
+	carrierName: string?,
 }
 
 export type WeaponHudState = {
@@ -46,6 +49,16 @@ export type WeaponHudState = {
 	reserve: number,
 	reloading: boolean,
 	reloadProgress: number,
+	melee: boolean,
+	carryingPayload: boolean,
+}
+
+export type WeaponFeedback = {
+	weaponId: string,
+	melee: boolean,
+	recoil: number,
+	muzzleScale: number,
+	origin: Vector3,
 }
 
 export type HudStatePayload = {

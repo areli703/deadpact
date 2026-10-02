@@ -8,7 +8,7 @@
 
 	If anything throws here the console prints a single loud banner — a silent
 	half-boot is worse than a visible failure.
-]] 
+]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

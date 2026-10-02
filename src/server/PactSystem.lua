@@ -367,7 +367,11 @@ function PactSystem.start(): ()
 		local best: Runtime.PlayerState? = nil
 		local bestDist = Config.Pact.reviveRange
 		for _, other in pairs(Runtime.allStates()) do
-			if other.userId ~= ps.userId and other.downed and PactSystem.canRevive(ps.userId, other.userId) then
+			if
+				other.userId ~= ps.userId
+				and other.downed
+				and PactSystem.canRevive(ps.userId, other.userId)
+			then
 				local dist = (other.position - ps.position).Magnitude
 				if dist <= bestDist then
 					bestDist = dist

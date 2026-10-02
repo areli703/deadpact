@@ -17,15 +17,29 @@ export type DistrictConfig = {
 	studsPerSide: number,
 	blockSize: number,
 	streetWidth: number,
+	sidewalkWidth: number,
 	groundY: number,
+	-- Shell + interior tunables for the enterable buildings.
+	wallThickness: number,
+	doorWidth: number,
+	doorHeight: number,
+	windowWidth: number,
+	windowHeight: number,
+	floorBandEvery: number,
+	roofParapet: number,
 	buildingHeights: { number },
 	buildingCount: number,
 	lightHeight: number,
 	blockColors: { Color3 },
 	streetColor: Color3,
+	sidewalkColor: Color3,
 	groundColor: Color3,
 	roofColor: Color3,
 	buildingColor: Color3,
+	trimColor: Color3,
+	glassColor: Color3,
+	laneColor: Color3,
+	interiorColor: Color3,
 	lightColor: Color3,
 	extractionCount: number,
 	extractionRadius: number,
@@ -33,33 +47,77 @@ export type DistrictConfig = {
 }
 
 Config.District = {
-	-- ~120x120 stud playable area.
-	studsPerSide = 120,
-	blockSize = 24,
-	streetWidth = 12,
+	-- ~240x240 stud playable area: a real grid of city blocks, not a corridor.
+	studsPerSide = 240,
+	blockSize = 60,
+	streetWidth = 22,
+	sidewalkWidth = 5,
 	groundY = 0,
+	-- Shell + interior tunables for the enterable buildings.
+	wallThickness = 1.6,
+	doorWidth = 8,
+	doorHeight = 13,
+	windowWidth = 8,
+	windowHeight = 6.5,
+	floorBandEvery = 11,
+	roofParapet = 2.6,
 	-- Varied building heights; each is chosen from this list.
-	buildingHeights = { 24, 36, 48, 60, 72, 90 },
-	buildingCount = 42,
-	lightHeight = 16,
+	buildingHeights = { 26, 34, 42, 54, 64 },
+	buildingCount = 16,
+	lightHeight = 18,
 
 	blockColors = {
-		Color3.fromRGB(28, 30, 36),
-		Color3.fromRGB(34, 36, 44),
-		Color3.fromRGB(22, 24, 30),
-		Color3.fromRGB(40, 38, 34),
+		Color3.fromRGB(40, 42, 50),
+		Color3.fromRGB(46, 44, 38),
+		Color3.fromRGB(34, 38, 44),
+		Color3.fromRGB(50, 46, 42),
+		Color3.fromRGB(38, 40, 48),
 	},
-	streetColor = Color3.fromRGB(18, 19, 22),
-	groundColor = Color3.fromRGB(14, 15, 18),
-	roofColor = Color3.fromRGB(46, 48, 54),
-	buildingColor = Color3.fromRGB(30, 32, 38),
+	streetColor = Color3.fromRGB(24, 25, 29),
+	sidewalkColor = Color3.fromRGB(40, 41, 46),
+	groundColor = Color3.fromRGB(20, 21, 25),
+	roofColor = Color3.fromRGB(48, 50, 56),
+	buildingColor = Color3.fromRGB(34, 36, 42),
+	trimColor = Color3.fromRGB(60, 62, 70),
+	glassColor = Color3.fromRGB(120, 170, 210),
+	laneColor = Color3.fromRGB(208, 202, 176),
+	interiorColor = Color3.fromRGB(46, 44, 42),
 	-- Amber street lighting, matching the concept palette.
 	lightColor = Color3.fromRGB(255, 182, 72),
 
 	extractionCount = 3,
-	extractionRadius = 10,
-	lootCount = 18,
+	extractionRadius = 12,
+	lootCount = 40,
 } :: DistrictConfig
+
+-- ---------------------------------------------------------------------------
+-- World purpose — "The Payload"
+--
+-- The district is not scenery: at the centre of every round it hides ONE
+-- extractable objective, THE PAYLOAD. Taking it and getting it out through an
+-- extraction zone is the win condition. Because the payload is heavy, its
+-- carrier moves slowly and cannot sprint — so you need a pact ally covering
+-- you. Purpose + the Pact, wired together.
+-- ---------------------------------------------------------------------------
+
+Config.Purpose = {
+	-- The landmark building that hides the payload sits here (district centre).
+	landmarkPosition = Vector3.new(0, 0, 0),
+	-- Seconds into the Active phase before the payload can be grabbed.
+	armedAt = 0,
+	-- How long a carrier must hold the pad to secure the payload.
+	secureHoldTime = 2.5,
+	-- Movement penalty on the carrier: the reason you want an ally.
+	carrierWalkSpeed = 8,
+	carrierCanSprint = false,
+	-- Score awarded for escaping with the payload; a huge chunk of the round.
+	extractScore = 750,
+	-- Score awarded for standing on the payload when the round ends (contested).
+	holdScore = 150,
+	-- The payload is a physical, glowing object you can see across the district.
+	beaconRange = 260,
+	beaconBrightness = 4,
+}
 
 -- Art direction palette (concept §8). Used by props and UI tinting.
 Config.Palette = {
@@ -105,9 +163,35 @@ export type WeaponConfig = {
 	ammoType: string,
 	noise: number, -- heat raised per shot
 	automatic: boolean,
+	-- Handling (drive the viewmodel + feedback on the client)
+	melee: boolean, -- true for blades: no ammo, no muzzle flash
+	adsZoom: number, -- camera FOV multiplier while aiming down sights
+	recoil: number, -- kick applied to the viewmodel per shot
+	headshotMultiplier: number, -- damage multiplier for a head hit
+	backstabMultiplier: number, -- melee-only: damage multiplier from behind
+	muzzleScale: number, -- size of the muzzle flash
 }
 
 Config.Weapons = {
+	knife = {
+		displayName = "Trench Knife",
+		damage = 55,
+		fireRate = 1.6,
+		magazine = 0, -- blades do not reload
+		reloadTime = 0,
+		spread = 0,
+		range = 7,
+		ammoType = "none",
+		noise = 0, -- the knife is the silent option
+		automatic = false,
+		melee = true,
+		adsZoom = 1,
+		recoil = 0.05,
+		headshotMultiplier = 2,
+		backstabMultiplier = 3,
+		muzzleScale = 0,
+	} :: WeaponConfig,
+
 	pistol = {
 		displayName = "Sidearm",
 		damage = 18,
@@ -119,6 +203,12 @@ Config.Weapons = {
 		ammoType = "light",
 		noise = 18,
 		automatic = false,
+		melee = false,
+		adsZoom = 0.75,
+		recoil = 0.12,
+		headshotMultiplier = 2,
+		backstabMultiplier = 1,
+		muzzleScale = 1.4,
 	} :: WeaponConfig,
 
 	shotgun = {
@@ -132,6 +222,12 @@ Config.Weapons = {
 		ammoType = "shell",
 		noise = 42,
 		automatic = false,
+		melee = false,
+		adsZoom = 0.85,
+		recoil = 0.3,
+		headshotMultiplier = 1.5,
+		backstabMultiplier = 1,
+		muzzleScale = 2.2,
 	} :: WeaponConfig,
 
 	rifle = {
@@ -145,10 +241,16 @@ Config.Weapons = {
 		ammoType = "heavy",
 		noise = 30,
 		automatic = true,
+		melee = false,
+		adsZoom = 0.6,
+		recoil = 0.16,
+		headshotMultiplier = 2.5,
+		backstabMultiplier = 1,
+		muzzleScale = 1.7,
 	} :: WeaponConfig,
 } :: { [string]: WeaponConfig }
 
-Config.WeaponOrder = { "pistol", "shotgun", "rifle" }
+Config.WeaponOrder = { "knife", "pistol", "shotgun", "rifle" }
 Config.StartingWeapon = "pistol"
 Config.PelletCounts = {
 	pistol = 1,
@@ -316,6 +418,12 @@ local REQUIRED_WEAPON_STATS = {
 	"ammoType",
 	"noise",
 	"automatic",
+	"melee",
+	"adsZoom",
+	"recoil",
+	"headshotMultiplier",
+	"backstabMultiplier",
+	"muzzleScale",
 }
 
 local REQUIRED_ZOMBIE_STATS = {
