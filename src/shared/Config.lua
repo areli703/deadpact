@@ -88,6 +88,20 @@ Config.District = {
 	extractionCount = 3,
 	extractionRadius = 12,
 	lootCount = 40,
+
+	-- ---- THE ASCENT ------------------------------------------------------
+	-- The ground city above is only the start: tier after tier stacks upward
+	-- into the clouds, matching the concept art's pyramid silhouette. Each tier
+	-- is a platform ring holding enterable blocks, joined to the one below by
+	-- grand staircases. Tune these to change how tall the world feels.
+	ascentTiers = 5,
+	ascentTierHeight = 88,
+	ascentStairWidth = 16,
+	ascentPlatformRadius = 76,
+	ascentBlockCount = 3,
+	-- Cold at the bottom, fire at the top: per-tier tint blended by Vertical.
+	ascentColdColor = Color3.fromRGB(96, 128, 168),
+	ascentHotColor = Color3.fromRGB(214, 118, 54),
 } :: DistrictConfig
 
 -- ---------------------------------------------------------------------------

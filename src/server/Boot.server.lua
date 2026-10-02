@@ -19,6 +19,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local Runtime = require(script.Parent.Runtime)
 local Net = require(script.Parent.Net)
 local District = require(script.Parent.District)
+local Vertical = require(script.Parent.Vertical)
 local LootSystem = require(script.Parent.LootSystem)
 local NoiseSystem = require(script.Parent.NoiseSystem)
 local PactSystem = require(script.Parent.PactSystem)
@@ -34,6 +35,15 @@ local function boot(): ()
 
 	-- 2. Build the world and place the loot.
 	local district = District.generate(workspace)
+	-- THE ASCENT: stack the sky tiers on top of the ground city. Additive and
+	-- non-destructive — if it fails the ground game still runs untouched.
+	local ascentOk, ascentErr = pcall(function()
+		local ascent = Vertical.generate(workspace, district.propFolder)
+		district.ascent = ascent
+	end)
+	if not ascentOk then
+		warn("[DEADPACT] ascent build failed (ground city unaffected): " .. tostring(ascentErr))
+	end
 	LootSystem.bind(district.lootSpots, district.propFolder)
 	LootSystem.populate(district.lootSpots, district.propFolder)
 	ExtractionSystem.setup(district.extractions)
